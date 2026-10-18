@@ -1,0 +1,19 @@
+.syka-brand-icon {
+	animation: syka-recorder-breathe 6s ease-in-out infinite;
+}
+
+@keyframes syka-recorder-breathe {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.035);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.syka-brand-icon {
+		animation: none;
+	}
+}
