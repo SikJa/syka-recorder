@@ -4,7 +4,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
 const callbackUrl = import.meta.env.DEV
 	? "http://127.0.0.1:43821/auth/callback"
-	: "recordly://auth/callback";
+	: "syka-recorder://auth/callback";
 
 export const recordlyAuthConfigured = Boolean(supabaseUrl && supabasePublishableKey);
 
@@ -140,6 +140,12 @@ export async function requestAccountEmailChange(email: string): Promise<User> {
 	if (error) throw error;
 	if (!data.user) throw new Error("Could not change your email. Please try again.");
 	return data.user;
+}
+
+// Local recording does not require an account when this fork has no auth service.
+// Keep session identity separate: offline access must never impersonate a user.
+export async function canStartLocalRecording(): Promise<boolean> {
+	return !recordlyAuthConfigured || hasRecordlySession();
 }
 
 export async function hasRecordlySession(): Promise<boolean> {

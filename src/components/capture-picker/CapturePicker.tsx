@@ -272,7 +272,7 @@ export function CapturePicker() {
 							);
 						})}
 					<div
-						className="pointer-events-none absolute whitespace-nowrap rounded-md bg-blue-600 px-2 py-1 text-xs text-white"
+						className="pointer-events-none absolute whitespace-nowrap rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground"
 						style={{ top: target.rect.y >= 30 ? -28 : 6, left: 6 }}
 					>
 						{label} · {Math.round(target.rect.width)} × {Math.round(target.rect.height)}

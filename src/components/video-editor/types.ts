@@ -63,7 +63,7 @@ export type CursorStyle =
 	| "dot"
 	| "figma"
 	| (string & {});
-export const DEFAULT_CURSOR_STYLE: CursorStyle = "tahoe";
+export const DEFAULT_CURSOR_STYLE: CursorStyle = "figma";
 
 export type CursorClickEffectStyle = "none" | "spotlight" | "ripple" | "echo";
 export const DEFAULT_CURSOR_CLICK_EFFECT: CursorClickEffectStyle = "none";
@@ -191,7 +191,7 @@ export const DEFAULT_CONNECTED_ZOOM_DURATION_MS = 1000;
 export const DEFAULT_ZOOM_IN_EASING: ZoomTransitionEasing = "recordly";
 export const DEFAULT_ZOOM_OUT_EASING: ZoomTransitionEasing = "recordly";
 export const DEFAULT_CONNECTED_ZOOM_EASING: ZoomTransitionEasing = "glide";
-export const DEFAULT_WEBCAM_SIZE = 40;
+export const DEFAULT_WEBCAM_SIZE = 30;
 export const DEFAULT_WEBCAM_REACT_TO_ZOOM = true;
 export const DEFAULT_WEBCAM_ROUNDNESS = 100;
 export const DEFAULT_WEBCAM_SHADOW = 0.3;

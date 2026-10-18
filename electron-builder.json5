@@ -1,7 +1,7 @@
 // @see - https://www.electron.build/configuration/configuration
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "dev.recordly.app",
+  "appId": "dev.syka.recorder",
   "electronUpdaterCompatibility": ">=2.16",
   "asar": true,
   "asarUnpack": [
@@ -10,25 +10,27 @@
     "node_modules/uiohook-napi/**",
     "electron/native/bin/**"
   ],
-  "productName": "Recordly",
+  "productName": "Syka Recorder",
   "protocols": [
     {
-      "name": "Recordly authentication",
-      "schemes": ["recordly"]
+      "name": "Syka Recorder authentication",
+      "schemes": ["syka-recorder"]
     }
   ],
   "npmRebuild": true,
-  "buildDependenciesFromSource": true,
+  "buildDependenciesFromSource": false,
   "compression": "normal",
   "directories": {
     "output": "release"
   },
   "files": [
     "dist",
-    "!dist/wallpapers/**",
     "dist-electron",
+    "!dist-electron/preload.mjs",
     "electron/native/bin",
-    "!electron/native/bin/**/whisper-bench*",
+    "!electron/native/bin/**/whisper*",
+    "!electron/native/bin/**/ggml*",
+    "!electron/native/bin/**/libggml*",
     "!electron/native/bin/**/whisper-quantize*",
     "!electron/native/bin/**/whisper-server*",
     "!electron/native/bin/**/whisper-vad-speech-segments*",
@@ -43,21 +45,17 @@
     "!CONTRIBUTING.md",
     "!LICENSE"
   ],
-  "extraResources": [
-    {
-      "from": "public/wallpapers",
-      "to": "assets/wallpapers"
-    }
+  // AGPL-3.0 and third-party notices travel with every installed copy.
+  "extraFiles": [
+    { "from": "LICENSE.md", "to": "licenses/LICENSE.md" },
+    { "from": "THIRD_PARTY_NOTICES.md", "to": "licenses/THIRD_PARTY_NOTICES.md" },
+    { "from": "docs/licenses", "to": "licenses/third-party" },
+    { "from": "src/components/launch/drawing/LICENSE-Whispera.txt", "to": "licenses/LICENSE-Whispera.txt" },
+    { "from": "src/assets/fonts/inter/OFL.txt", "to": "licenses/Inter-OFL.txt" },
+    { "from": "branding/syka-orb/LICENSE.thinking-orbs.txt", "to": "licenses/LICENSE.thinking-orbs.txt" }
   ],
-  "publish": [
-    {
-      "provider": "github",
-      "owner": "webadderall",
-      "repo": "Recordly",
-      "tagNamePrefix": "v",
-      "publishAutoUpdate": true
-    }
-  ],
+  // Explicit fork feed: never discover the upstream remote as an update source.
+  "publish": { "provider": "github", "owner": "SikJa", "repo": "syka-recorder", "releaseType": "release" },
 
   "mac": {
     "hardenedRuntime": true,
@@ -73,28 +71,27 @@
         "arch": ["x64", "arm64"]
       }
     ],
-    "icon": "icons/icons/mac/icon.icns",
+    "icon": "icons/icons/png/1024x1024.png",
     "artifactName": "${productName}-${arch}.${ext}",
     "extendInfo": {
-      "NSAudioCaptureUsageDescription": "Recordly needs audio capture permission to record system audio.",
-      "NSCameraUsageDescription": "Recordly needs camera access to record webcam video.",
-      "NSMicrophoneUsageDescription": "Recordly needs microphone access to record voice audio.",
+      "NSAudioCaptureUsageDescription": "Syka Recorder needs audio capture permission to record system audio.",
+      "NSCameraUsageDescription": "Syka Recorder needs camera access to record webcam video.",
+      "NSMicrophoneUsageDescription": "Syka Recorder needs microphone access to record voice audio.",
       "NSCameraUseContinuityCameraDeviceType": true,
       "com.apple.security.device.audio-input": true,
       "CFBundleDocumentTypes": [
         {
-          "CFBundleTypeName": "Recordly Project",
+          "CFBundleTypeName": "Recordly Project (Syka Recorder)",
           "CFBundleTypeRole": "Editor",
           "CFBundleTypeExtensions": ["recordly"],
-          "CFBundleTypeIconFile": "icon.icns",
-          "LSHandlerRank": "Owner",
-          "LSItemContentTypes": ["dev.recordly.app.project"]
+                    "LSHandlerRank": "Owner",
+          "LSItemContentTypes": ["dev.syka.recorder.project"]
         }
       ],
       "UTExportedTypeDeclarations": [
         {
-          "UTTypeIdentifier": "dev.recordly.app.project",
-          "UTTypeDescription": "Recordly Project",
+          "UTTypeIdentifier": "dev.syka.recorder.project",
+          "UTTypeDescription": "Recordly Project (Syka Recorder)",
           "UTTypeConformsTo": ["public.json"],
           "UTTypeTagSpecification": {
             "public.filename-extension": ["recordly"],
@@ -117,14 +114,14 @@
       "nsis"
     ],
     "icon": "icons/icons/win/icon.ico",
-    "executableName": "Recordly",
-    "artifactName": "${productName}-windows-${arch}.${ext}"
+    "executableName": "SykaRecorder",
+    "artifactName": "Syka-Recorder-${arch}-Setup.${ext}"
   },
   "nsis": {
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "Recordly"
+    "shortcutName": "Syka Recorder"
   }
 }

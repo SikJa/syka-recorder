@@ -9,14 +9,16 @@
 .bar {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 4px;
 	width: max-content;
 	max-width: 1200px;
 	background: var(--launch-bar-bg);
-	border: 1px solid var(--launch-bar-border);
+	border: 1px solid var(--launch-bar-border); /* taste-skill-ignore: existing floating HUD boundary over arbitrary desktop content. */
 	border-radius: var(--radius-xl);
-	padding: 8px 12px;
-	box-shadow: var(--launch-bar-shadow);
+	padding: 5px 8px;
+	box-shadow: var(
+		--launch-bar-shadow
+	); /* taste-skill-ignore: this is an actual floating desktop overlay. */
 	overflow: visible;
 	position: relative;
 	transform-origin: center bottom;
@@ -27,7 +29,7 @@
 	display: flex;
 	align-items: center;
 	flex: 0 1 auto;
-	min-height: 46px;
+	min-height: 32px;
 	min-width: fit-content;
 	padding-right: 2px;
 }
@@ -35,7 +37,7 @@
 .barState {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 4px;
 	flex: 0 1 auto;
 	white-space: nowrap;
 	min-width: fit-content;
@@ -130,12 +132,71 @@
 	}
 }
 
-.recDot {
-	width: 14px;
-	height: 14px;
-	border-radius: 50%;
-	background: #fff;
-	transition: all 0.2s ease;
+.compactAction {
+	width: 32px;
+	min-width: 32px;
+	height: 32px;
+	min-height: 32px;
+}
+
+.sourceAction {
+	height: 32px;
+	min-height: 32px;
+	max-width: 144px;
+	padding-inline: 8px;
+	font-size: 13px;
+}
+
+.recordAction {
+	border-radius: 8px;
+}
+
+.dragHandle {
+	--icon-swap-dur: 150ms;
+	--icon-swap-start-scale: 0.8;
+	display: grid;
+	place-items: center;
+	flex: 0 0 28px;
+	width: 28px;
+	height: 32px;
+	padding: 0;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--launch-text-muted);
+	cursor: grab;
+	touch-action: none;
+	user-select: none;
+	transition:
+		color 150ms ease-out,
+		background-color 150ms ease-out;
+}
+
+.dragHandle:hover {
+	color: var(--launch-text);
+	background: var(--launch-hover);
+}
+
+.dragHandle:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}
+
+.bar[data-dragging="true"] .dragHandle,
+.dragHandle:active {
+	cursor: grabbing;
+	color: var(--launch-accent);
+	background: var(--launch-accent-soft);
+}
+
+.bar[data-dragging="true"] {
+	user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dragHandle {
+		transition: none;
+	}
 }
 
 .stopSquare {
@@ -156,8 +217,10 @@
 	overflow: hidden;
 	border-radius: 24px;
 	background: var(--launch-surface);
-	border: 1px solid var(--launch-border-strong);
-	box-shadow: var(--launch-bar-shadow);
+	border: 1px solid var(--launch-border-strong); /* taste-skill-ignore: existing webcam overlay boundary. */
+	box-shadow: var(
+		--launch-bar-shadow
+	); /* taste-skill-ignore: floating webcam overlay, not an at-rest page card. */
 	cursor: grab;
 	touch-action: none;
 	user-select: none;
@@ -171,8 +234,71 @@
 
 .recordingWebcamPreviewResizeHandle {
 	position: absolute;
-	width: 20px;
-	height: 20px;
+	width: 28px;
+	height: 28px;
+	z-index: 1;
+}
+
+/* Corner grips appear on hover so the camera can be resized without a hidden target. */
+.recordingWebcamPreviewResizeHandle::after {
+	content: "";
+	position: absolute;
+	width: 12px;
+	height: 12px;
+	border-color: rgb(255 255 255 / 0.85);
+	border-style: solid;
+	border-width: 0;
+	filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.6));
+	opacity: 0;
+	transform: scale(0.85);
+	transition:
+		opacity 150ms cubic-bezier(0.22, 1, 0.36, 1),
+		transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.recordingWebcamPreview:hover .recordingWebcamPreviewResizeHandle::after,
+.recordingWebcamPreviewResizeHandle:active::after {
+	opacity: 1;
+	transform: scale(1);
+}
+
+.recordingWebcamPreviewResizeHandle[data-resize-handle="nw"]::after {
+	top: 9px;
+	left: 9px;
+	border-top-width: 2px;
+	border-left-width: 2px;
+	border-top-left-radius: 6px;
+}
+
+.recordingWebcamPreviewResizeHandle[data-resize-handle="ne"]::after {
+	top: 9px;
+	right: 9px;
+	border-top-width: 2px;
+	border-right-width: 2px;
+	border-top-right-radius: 6px;
+}
+
+.recordingWebcamPreviewResizeHandle[data-resize-handle="sw"]::after {
+	bottom: 9px;
+	left: 9px;
+	border-bottom-width: 2px;
+	border-left-width: 2px;
+	border-bottom-left-radius: 6px;
+}
+
+.recordingWebcamPreviewResizeHandle[data-resize-handle="se"]::after {
+	bottom: 9px;
+	right: 9px;
+	border-bottom-width: 2px;
+	border-right-width: 2px;
+	border-bottom-right-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.recordingWebcamPreviewResizeHandle::after {
+		transform: none;
+		transition: none;
+	}
 }
 
 .recordingWebcamPreviewResizeHandle[data-resize-handle="nw"] {

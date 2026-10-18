@@ -1,10 +1,13 @@
-import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
+import { ChatCircle } from "@phosphor-icons/react";
+import { AccountAvatar } from "@/components/ui/account-avatar";
+import { Button } from "@/components/ui/button";
+import { File, GearSix, House, Plus } from "@/components/ui/icons";
+import { SykaBrandOrb } from "@/components/ui/syka-brand-orb";
+import { useScopedT } from "@/contexts/I18nContext";
+import { openExternalLink } from "../TutorialHelp";
+import { FolderRow } from "./FolderRow";
 import { RecordNewButton } from "./RecordNewButton";
 import { SidebarCards } from "./SidebarCards";
-import { FolderRow } from "./FolderRow";
-import { Cloud, File, GearSix, House, Plus, UserCircle } from "@/components/ui/icons";
-
-import { Button } from "@/components/ui/button";
 
 import type { DashboardProps } from "./types";
 
@@ -37,19 +40,20 @@ export function DashboardSidebar({
 	| "onSignIn"
 	| "accountLabel"
 >) {
+	const tc = useScopedT("common");
 	return (
 		<>
 			<aside
 				aria-label="Library navigation"
 				className="flex w-48 shrink-0 flex-col bg-transparent px-4 pb-5 pt-12 lg:w-56"
 			>
-				<div className="mb-4 flex h-10 items-center gap-2.5 px-3">
-					<img
-						src={`${import.meta.env.BASE_URL}app-icons/recordly-64.png`}
-						alt=""
-						className="size-7 rounded-lg"
-					/>
-					<span className="text-[15px] font-semibold tracking-tight">Recordly</span>
+				<div className="mb-4 flex min-h-10 items-center gap-2.5 px-3">
+					<SykaBrandOrb />
+					<div className="flex min-w-0 flex-col">
+						<span className="text-[15px] font-semibold tracking-tight">
+							{tc("app.name", "Syka Recorder")}
+						</span>
+					</div>
 				</div>
 				<RecordNewButton busy={busy} run={run} className="mb-5 w-full" />
 				<nav className="space-y-1">
@@ -61,18 +65,6 @@ export function DashboardSidebar({
 					>
 						<House weight="fill" className="size-[18px]" />
 						Home
-					</Button>
-					<Button
-						variant="ghost"
-						className={navClass(section === "shared")}
-						aria-current={section === "shared" ? "page" : undefined}
-						onClick={() => setSection("shared")}
-					>
-						<Cloud
-							weight={section === "shared" ? "fill" : "regular"}
-							className="size-[18px]"
-						/>
-						Shared
 					</Button>
 					<Button
 						variant="ghost"
@@ -136,7 +128,19 @@ export function DashboardSidebar({
 				</div>
 				<div className="space-y-1 pt-6">
 					<SidebarCards />
-					<FeedbackDialog showLabel className={navClass(false)} onSignIn={onSignIn} />
+					<Button
+						variant="ghost"
+						className={navClass(false)}
+						onClick={() =>
+							void openExternalLink(
+								"https://discord.gg/Sy5dtySQG9",
+								"No se pudo abrir Discord de Syka.",
+							)
+						}
+					>
+						<ChatCircle className="size-[18px]" />
+						Discord de Syka
+					</Button>
 					<Button
 						variant="ghost"
 						className={navClass(section === "settings")}
@@ -150,9 +154,12 @@ export function DashboardSidebar({
 						Settings
 					</Button>
 					<Button variant="ghost" className={navClass(false)} onClick={onSignIn}>
-						<UserCircle weight="fill" className="size-[18px] shrink-0" />
-						<span className="truncate">{accountLabel || "Sign in"}</span>
+						<AccountAvatar label={accountLabel} className="!size-[20px] text-[9px]" />
+						<span className="truncate">{accountLabel || "Perfil local"}</span>
 					</Button>
+					<p className="px-3 pt-3 text-[10px] leading-relaxed text-muted-foreground">
+						{tc("app.basedOn", "Based on Recordly by webadderall (AGPL-3.0)")}
+					</p>
 				</div>
 			</aside>
 		</>

@@ -1,63 +1,18 @@
-# Contribution Guidelines
+﻿# Contribuir a Syka Recorder
 
-Thank you for considering contributing to this project! By contributing, you help make this project better for everyone. Please take a moment to review these guidelines to ensure a smooth contribution process.
+Conservá el motor y la interfaz aprobados. Captura, editor y transferencia son recorridos distintos: indicá qué verificaste.
 
-Areas where help is especially valuable:
-- Export optimisations
-- Native screen recording for Linux
-- Wallpaper submissions
-- Extensions (device frames, click effects, render hooks — see [EXTENSIONS.md](./EXTENSIONS.md))
+Con Node 22+ y npm, ejecutá npm ci y npm run dev. Los auxiliares nativos de Windows requieren Visual Studio Build Tools y Windows SDK. No copies node_modules ni herramientas locales de otra computadora.
 
-## How to Contribute
+Antes de proponer cambios:
 
-1. **Fork the Repository**
-   - Click the "Fork" button at the top right of this repository to create your own copy.
+- Ejecutar TypeScript y pruebas pertinentes; incluir regresiones para errores de captura, importación, audio y rutas.
+- Verificar cambios visuales en la app real y conservar marca, proporciones y reduced motion.
+- Probar transferencias moviendo la carpeta completa, sin fuentes originales.
+- Excluir perfiles, grabaciones, tokens, .env, .tmp y resultados QA.
+- Respetar licencias y mantener Recorder y Studio en repositorios separados.
+- No publicar ni habilitar actualizaciones como parte de una compilación local.
 
-2. **Clone Your Fork**
-   - Clone your forked repository to your local machine:
-     ```bash
-     git clone https://github.com/your-username/Recordly.git
-     ```
+El PR debe explicar problema, resultado, pruebas y límites. Una compilación no certifica el instalador en otra PC.
 
-3. **Create a New Branch**
-   - Create a branch for your feature or bug fix:
-     ```bash
-     git checkout -b feature/your-feature-name
-     ```
-
-4. **Make Changes**
-   - Make your changes.
-
-5. **Test Your Changes**
-   - Test your changes thoroughly to ensure they work as expected and do not break existing functionality.
-
-6. **Commit Your Changes**
-   - Commit your changes with a clear and concise commit message:
-     ```bash
-     git add .
-     git commit -m "Add a brief description of your changes"
-     ```
-
-7. **Push Your Changes**
-   - Push your branch to your forked repository:
-     ```bash
-     git push origin feature/your-feature-name
-     ```
-
-8. **Open a Pull Request**
-   - Go to the original repository and open a pull request from your branch. Provide a clear description of your changes and the problem they solve.
-
-## Reporting Issues
-
-If you encounter a bug or have a feature request, please open an issue in the [Issues](https://github.com/webadderallorg/Recordly/issues) section of this repository. Provide as much detail as possible to help us address the issue effectively.
-
-## Style Guide
-
-- Write clear, concise, and descriptive commit messages.
-- Include comments where necessary to explain complex code.
-
-## License
-
-By contributing to this project, you agree that your contributions will be licensed under the [GNU Affero General Public License v3.0](./LICENSE.md).
-
-Thank you for your contributions!
+[Guía histórica de upstream](docs/upstream/CONTRIBUTING-Recordly.md).

@@ -2,9 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/app-icons/recordly-32.png" />
+    <link rel="icon" type="image/png" href="/app-icons/syka-recorder-32.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Recordly</title>
+    <title>Syka Recorder</title>
     <script>
       // Paint the destination shell before the renderer bundle is downloaded or evaluated.
       // Keep recording overlays transparent during their own startup.
@@ -17,11 +17,11 @@
         try { if (localStorage.getItem("recordly.open-dashboard")) startupView = "home"; }
         catch { /* Home metadata can still be resolved through the desktop bridge. */ }
         document.documentElement.dataset.startupView = startupView === "home" ? "home" : "editor";
-        let preference = "system";
+        let preference = "dark";
         try {
           preference = window.electronAPI?.getAppSetting("recordly.theme") ||
-            localStorage.getItem("recordly.theme") || "system";
-        } catch { /* Use the system theme when persisted settings are unavailable. */ }
+            localStorage.getItem("recordly.theme") || "dark";
+        } catch { /* Use the dark default when persisted settings are unavailable. */ }
         document.documentElement.dataset.theme =
           preference === "dark" ||
           (preference !== "light" && matchMedia("(prefers-color-scheme: dark)").matches)
@@ -30,6 +30,7 @@
     </script>
     <style>
       .boot-shell { display: none; }
+      html[data-window-type="recording-ink"], html[data-window-type="recording-ink"] body, html[data-window-type="recording-ink"] #root { background: transparent !important; overflow: hidden; }
       html[data-window-type="editor"] { background: #f6f6f7; }
       html[data-window-type="editor"][data-theme="dark"] { background: #171719; }
       html[data-window-type="editor"] .boot-shell {

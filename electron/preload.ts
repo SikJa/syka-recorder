@@ -184,8 +184,33 @@ function settleNativeVideoExportPendingRequests(
 }
 
 contextBridge.exposeInMainWorld("electronAPI", {
+  onRecordingControlsRestore: (callback: () => void) => {
+    const listener=()=>callback();ipcRenderer.on('recording-controls-restore',listener);
+    return ()=>ipcRenderer.removeListener('recording-controls-restore',listener);
+  },
+  recordingInkStart: () => ipcRenderer.invoke('recording-ink-start'),
+  recordingInkScene: (scene: import('../src/components/launch/drawing/contract').InkUpdate) => ipcRenderer.send('recording-ink-scene',scene),
+  recordingInkSample: (rect: import('../src/components/launch/drawing/contract').InkRect) => ipcRenderer.invoke('recording-ink-sample',rect),
+  recordingInkReady: () => ipcRenderer.send('recording-ink-ready'),
+  onRecordingInkScene: (callback: (scene: import('../src/components/launch/drawing/contract').InkUpdate) => void) => {
+    const listener=(_event: Electron.IpcRendererEvent, scene: import('../src/components/launch/drawing/contract').InkUpdate)=>callback(scene);
+    ipcRenderer.on('recording-ink-scene',listener);
+    return ()=>ipcRenderer.removeListener('recording-ink-scene',listener);
+  },
+  onRecordingInkError: (callback: (message: string) => void) => {
+    const listener=(_event: Electron.IpcRendererEvent, message: string)=>callback(message);
+    ipcRenderer.on('recording-ink-error',listener);
+    return ()=>ipcRenderer.removeListener('recording-ink-error',listener);
+  },
+	beginSykaTransfer: () => ipcRenderer.invoke("syka-transfer-begin"),
+	openSykaTransferInStudio: (manifestPath: string) => ipcRenderer.invoke("syka-transfer-open-studio", manifestPath),
+	saveSykaTransfer: (request: import("../src/lib/sykaExport/contract").SaveTransferRequest) => ipcRenderer.invoke("syka-transfer-save", request),
+	cancelSykaTransfer: (operationId: string) => ipcRenderer.invoke("syka-transfer-cancel", operationId),
 	hudOverlaySetIgnoreMouse: (ignore: boolean) => {
 		ipcRenderer.send("hud-overlay-set-ignore-mouse", ignore);
+	},
+	hudOverlaySetInputRegions: (regions: Electron.Rectangle[]) => {
+		ipcRenderer.send("hud-overlay-set-input-regions", regions);
 	},
 	hudOverlaySetSourceSelectionActive: (active: boolean) => {
 		ipcRenderer.send("hud-overlay-set-source-selection-active", active);
@@ -797,6 +822,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			webcamPath?: string | null;
 			timeOffsetMs?: number;
 			hideOverlayCursorByDefault?: boolean;
+			webcamPreviewRect?: { x: number; y: number; width: number; height: number } | null;
 		},
 		options?: { preserveProjectPath?: boolean },
 	) => {

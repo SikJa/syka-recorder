@@ -1,17 +1,17 @@
-import { AccountAvatar } from "@/components/ui/account-avatar";
-import type { User } from "@supabase/supabase-js";
-import { Camera, ClosedCaptioning, Cursor, Gear, FrameCorners } from "@/components/ui/icons";
 import {
-	ToggleButtonGroup,
-	ToggleButton,
 	Button,
-	Tooltip,
 	Card,
-	Switch,
 	Label,
+	Switch,
+	ToggleButton,
+	ToggleButtonGroup,
+	Tooltip,
 } from "@heroui/react";
+import type { User } from "@supabase/supabase-js";
 import type { ComponentProps, ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
+import { AccountAvatar } from "@/components/ui/account-avatar";
+import { Camera, Cursor, FrameCorners, Gear } from "@/components/ui/icons";
 import type { useI18n } from "@/contexts/I18nContext";
 import ExtensionManager from "../ExtensionManager";
 import { SettingsPanel } from "../SettingsPanel";
@@ -27,7 +27,7 @@ type Props = {
 	settingsPanelProps: ComponentProps<typeof SettingsPanel>;
 };
 
-export function EditorSidebar({
+function EditorSidebarContent({
 	t,
 	accountUser,
 	activeSection,
@@ -40,9 +40,7 @@ export function EditorSidebar({
 	const advanced = advancedSections[activeSection] ?? false;
 	const hasAdvanced =
 		!settingsPanelProps.selectedAnnotationId &&
-		["scene", "frame", "crop", "cursor", "webcam", "captions", "settings", "zoom"].includes(
-			activeSection,
-		);
+		["scene", "frame", "crop", "cursor", "webcam", "settings", "zoom"].includes(activeSection);
 	const sections = useMemo(
 		() => [
 			{
@@ -52,11 +50,6 @@ export function EditorSidebar({
 			},
 			{ id: "cursor" as const, label: t("settings.sections.cursor", "Cursor"), icon: Cursor },
 			{ id: "webcam" as const, label: t("settings.sections.webcam", "Webcam"), icon: Camera },
-			{
-				id: "captions" as const,
-				label: t("settings.sections.captions", "Captions"),
-				icon: ClosedCaptioning,
-			},
 			{
 				id: "settings" as const,
 				label: t("settings.sections.settings", "Settings"),
@@ -109,12 +102,12 @@ export function EditorSidebar({
 						variant="ghost"
 						isIconOnly
 						className="mt-auto"
-						aria-label="Recordly account"
+						aria-label="Perfil local"
 						onPress={onAccountClick}
 					>
 						<AccountAvatar user={accountUser} className="!size-7" />
 					</Button>
-					<Tooltip.Content placement="right">Account</Tooltip.Content>
+					<Tooltip.Content placement="right">Perfil local</Tooltip.Content>
 				</Tooltip>
 			</nav>
 			<aside
@@ -169,3 +162,17 @@ export function EditorSidebar({
 		</div>
 	);
 }
+
+// The parent gathers inspector props each frame. Compare their values, including
+// callbacks, so the whole inspector stays idle while only the playhead advances.
+export const EditorSidebar = memo(EditorSidebarContent, (previous, next) => {
+	const sameValues = (a: object, b: object) => {
+		const keys = Object.keys(a) as (keyof typeof a)[];
+		return (
+			keys.length === Object.keys(b).length && keys.every((key) => Object.is(a[key], b[key]))
+		);
+	};
+	const { settingsPanelProps: previousSettings, ...previousProps } = previous;
+	const { settingsPanelProps: nextSettings, ...nextProps } = next;
+	return sameValues(previousProps, nextProps) && sameValues(previousSettings, nextSettings);
+});

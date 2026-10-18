@@ -17,7 +17,7 @@ import type {
 	ZoomRegion,
 	ZoomTransitionEasing,
 } from "@/components/video-editor/types";
-import { DEFAULT_WEBCAM_ROUNDNESS } from "@/components/video-editor/types";
+import { DEFAULT_CURSOR_STYLE, DEFAULT_WEBCAM_ROUNDNESS } from "@/components/video-editor/types";
 import { createCursorFollowCameraState } from "@/components/video-editor/videoPlayback/cursorFollowCamera";
 import { buildNativeCursorAtlas } from "@/components/video-editor/videoPlayback/cursorRenderer";
 import { getCursorViewportScale } from "@/components/video-editor/videoPlayback/cursorScale";
@@ -44,8 +44,8 @@ import {
 import { getEffectiveVideoStreamDurationSeconds } from "@/lib/mediaTiming";
 import {
 	DEFAULT_WALLPAPER_PATH,
-	DEFAULT_WALLPAPER_RELATIVE_PATH,
 	isVideoWallpaperSource,
+	normalizeWallpaperValue,
 } from "@/lib/wallpapers";
 import { AudioProcessor, isAacAudioEncodingSupported } from "./audioEncoder";
 import {
@@ -302,7 +302,6 @@ const MEDIA_SOURCE_RETRY_ERROR_TOKENS = [
 ];
 const LIGHTNING_PIPELINE_NAME = "Lightning (Beta)";
 const STATIC_LAYOUT_CHUNK_DURATION_SEC = 120;
-const MISSING_NATIVE_WALLPAPER_FALLBACK_COLOR = "#ffffff";
 const NATIVE_STATIC_LAYOUT_MAX_EXTRACTING_PROGRESS = 95;
 const NATIVE_STATIC_LAYOUT_FRAME_COMPLETE_PROGRESS = 96;
 
@@ -1052,7 +1051,7 @@ export class ModernVideoExporter {
 				);
 			}
 			guidance.add(
-				"The input video decoder failed before Recordly could finish rendering the source frames.",
+				"The input video decoder failed before Syka Recorder could finish rendering the source frames.",
 			);
 			guidance.add(
 				"If only this recording fails, remux or convert it to a standard H.264 MP4; the source may contain a damaged or unsupported frame.",
@@ -1127,7 +1126,7 @@ export class ModernVideoExporter {
 		];
 
 		if (this.runtimeDiagnostics.appVersion) {
-			lines.push(`Recordly version: ${this.runtimeDiagnostics.appVersion}`);
+			lines.push(`Syka Recorder version: ${this.runtimeDiagnostics.appVersion}`);
 		}
 		if (this.runtimeDiagnostics.userAgent) {
 			lines.push(`Runtime: ${this.runtimeDiagnostics.userAgent}`);
@@ -1794,8 +1793,7 @@ export class ModernVideoExporter {
 
 	private async resolveNativeStaticLayoutBackground(): Promise<NativeStaticLayoutBackground | null> {
 		this.nativeStaticLayoutBackgroundSkipReason = null;
-		const configuredWallpaper = this.config.wallpaper?.trim() ?? "";
-		const wallpaper = configuredWallpaper || DEFAULT_WALLPAPER_PATH;
+		const wallpaper = normalizeWallpaperValue(this.config.wallpaper?.trim());
 		if (/^#?[0-9a-f]{6}$/i.test(wallpaper)) {
 			return {
 				backgroundColor: wallpaper.startsWith("#") ? wallpaper : `#${wallpaper}`,
@@ -1845,15 +1843,7 @@ export class ModernVideoExporter {
 				return { backgroundColor: "#101010", backgroundImagePath: assetPath };
 			}
 
-			const fallbackAssetPath = await this.resolveNativeBundledAssetPath(
-				`/${DEFAULT_WALLPAPER_RELATIVE_PATH}`,
-			);
-			return fallbackAssetPath
-				? { backgroundColor: "#101010", backgroundImagePath: fallbackAssetPath }
-				: {
-						backgroundColor: MISSING_NATIVE_WALLPAPER_FALLBACK_COLOR,
-						backgroundImagePath: null,
-					};
+			return { backgroundColor: DEFAULT_WALLPAPER_PATH, backgroundImagePath: null };
 		}
 
 		const localPath = getLocalFilePath(wallpaper);
@@ -2287,7 +2277,7 @@ export class ModernVideoExporter {
 	}
 
 	private getNativeStaticLayoutCursorSize(contentWidth: number) {
-		const cursorStyle = this.config.cursorStyle ?? "tahoe";
+		const cursorStyle = this.config.cursorStyle ?? DEFAULT_CURSOR_STYLE;
 		const viewportScale = getCursorViewportScale(contentWidth);
 		return (
 			28 *
@@ -2516,7 +2506,7 @@ export class ModernVideoExporter {
 		}
 		const cursorAtlas =
 			cursorTelemetry && cursorTelemetry.length > 0
-				? await buildNativeCursorAtlas(this.config.cursorStyle ?? "tahoe").catch(
+				? await buildNativeCursorAtlas(this.config.cursorStyle ?? DEFAULT_CURSOR_STYLE).catch(
 						(error) => {
 							console.warn("[VideoExporter] Native cursor atlas unavailable", error);
 							return null;

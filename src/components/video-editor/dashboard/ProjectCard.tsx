@@ -6,7 +6,7 @@ import { Dropdown } from "@heroui/react";
 import { Check, DotsThree, FolderSimple, Plus } from "@/components/ui/icons";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getProjectShareLink, moveProjectShareLink } from "../cloud/projectShareLinks";
+import { moveProjectShareLink } from "../cloud/projectShareLinks";
 import type { ProjectLibraryEntry } from "../ProjectBrowserDialog";
 import { ProjectThumbnail } from "./ProjectThumbnail";
 import type { DashboardProps } from "./types";
@@ -39,7 +39,6 @@ export function ProjectCard({
 	toggleSelected,
 	openEntry,
 	run,
-	onShareProject,
 	onRenameProject,
 	folders,
 	save,
@@ -51,7 +50,6 @@ export function ProjectCard({
 	const [name, setName] = useState(entry.name);
 	const assignedFolders = folders.filter((folder) => folder.paths.includes(entry.path));
 	const folder = assignedFolders[0];
-	const shareUrl = getProjectShareLink(entry.path);
 	const rename = () => {
 		if (renaming.current) return;
 		renaming.current = true;
@@ -261,22 +259,7 @@ export function ProjectCard({
 									>
 										Rename
 									</Dropdown.Item>
-									{!entry.rawSource && (
-										<Dropdown.Item
-											id="share"
-											onAction={() =>
-												void run(async () => {
-													if (shareUrl)
-														await window.electronAPI.openExternalUrl(
-															shareUrl,
-														);
-													else await onShareProject(entry.path);
-												})
-											}
-										>
-											{shareUrl ? "View in web" : "Share"}
-										</Dropdown.Item>
-									)}
+
 									<Dropdown.Item
 										aria-label={
 											entry.rawSource

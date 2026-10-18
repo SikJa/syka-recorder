@@ -1,6 +1,7 @@
 import { resolveDisplayMediaSource } from "./ipc/register/sourceMapping";
 import { createSaveBeforeCloseController } from "./saveBeforeClose";
 import { clearRecordingTrashUndo } from "./ipc/recording/library";
+import { countdownInProgress, isCursorCaptureActive, nativeScreenRecordingActive, windowsNativeCaptureActive, ffmpegScreenRecordingActive } from "./ipc/state";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -31,7 +32,7 @@ import {
 } from "./ipc/handlers";
 import { ensureMediaServer } from "./mediaServer";
 import { hardenWebContentsNavigation, shouldHardenWebContentsType } from "./navigationPolicy";
-import { shouldGrantDisplayCapture, shouldGrantMediaPermission } from "./permissionPolicy";
+import { shouldGrantDisplayCapture, shouldGrantMediaPermission, shouldGrantEditorFullscreen } from "./permissionPolicy";
 import { ensurePackagedRendererServer, getPackagedRendererBaseUrl } from "./rendererServer";
 import {
 	checkForAppUpdates,
@@ -64,6 +65,7 @@ import {
 } from "./windows";
 
 const electronMainDir = path.dirname(fileURLToPath(import.meta.url));
+app.setName("Syka Recorder");
 const IS_SMOKE_EXPORT = process.env.RECORDLY_SMOKE_EXPORT === "1";
 
 function ignoreBrokenConsolePipe(stream: NodeJS.WritableStream | undefined) {
@@ -83,6 +85,7 @@ app.commandLine.appendSwitch("enable-unsafe-webgpu");
 app.commandLine.appendSwitch("enable-gpu-rasterization");
 
 app.on("web-contents-created", (_event, contents) => {
+	contents.on("preload-error", (_event, preloadPath, error) => console.error("[preload] Failed to load", preloadPath, error));
 	if (!shouldHardenWebContentsType(contents.getType())) {
 		return;
 	}
@@ -135,7 +138,7 @@ async function ensureRecordingsDir() {
 // │ │
 // │ ├─┬ dist-electron
 // │ │ ├── main.js
-// │ │ └── preload.mjs
+// │ │ └── preload.cjs
 // │
 process.env.APP_ROOT = path.join(electronMainDir, "..");
 
@@ -261,8 +264,7 @@ let defaultTrayIcon: ReturnType<typeof getTrayIcon> | null = null;
 let recordingTrayIcon: ReturnType<typeof getTrayIcon> | null = null;
 
 function getPlatformAppIconFilename(size: 32 | 128 | 512) {
-	const baseName = process.platform === "darwin" ? "recordlymac" : "recordly";
-	return `app-icons/${baseName}-${size}.png`;
+	return `app-icons/syka-recorder-${size}.png`;
 }
 
 function getDefaultTrayIcon() {
@@ -292,6 +294,7 @@ function showHudOverlayFromTray() {
 	if (!hud) {
 		return false;
 	}
+  hud.webContents.send('recording-controls-restore');
 
 	if (hud.isMinimized()) {
 		hud.restore();
@@ -717,7 +720,7 @@ ipcMain.handle("check-for-app-updates", async () => {
 function updateTrayMenu(recording: boolean = false) {
 	if (!tray) return;
 	const trayIcon = recording ? getRecordingTrayIcon() : getDefaultTrayIcon();
-	const trayToolTip = recording ? `Recording: ${selectedSourceName}` : "Recordly";
+	const trayToolTip = recording ? `Grabando: ${selectedSourceName}` : "Syka Recorder";
 	const menuTemplate = recording
 		? [
 				{
@@ -919,11 +922,12 @@ app.whenReady().then(async () => {
 	if (startupAuthCallback) authCallbacks.dispatch(startupAuthCallback);
 
 	if (process.platform === "win32") {
-		app.setAppUserModelId("dev.recordly.app");
+		app.setAppUserModelId("dev.syka.recorder");
 	}
 
 	session.defaultSession.setPermissionCheckHandler(
 		(webContents, permission, requestingOrigin, details) => {
+			if (permission === "fullscreen") return shouldGrantEditorFullscreen(webContents?.getURL() ?? "", details.isMainFrame, getTrustedCaptureDocumentBaseUrls());
 			return shouldGrantMediaPermission(
 				{
 					permission,
@@ -943,6 +947,10 @@ app.whenReady().then(async () => {
 
 	session.defaultSession.setPermissionRequestHandler(
 		(webContents, permission, callback, details) => {
+			if (permission === "fullscreen") {
+				callback(shouldGrantEditorFullscreen(webContents.getURL(), details.isMainFrame, getTrustedCaptureDocumentBaseUrls()));
+				return;
+			}
 			const securityOrigin = "securityOrigin" in details ? details.securityOrigin : undefined;
 
 			callback(
@@ -1063,7 +1071,13 @@ app.whenReady().then(async () => {
 	}
 
 	createWindow();
-	setupAutoUpdates(getUpdateDialogWindow, sendUpdateToastToWindows);
+	setupAutoUpdates(getUpdateDialogWindow, sendUpdateToastToWindows, () => {
+		if (countdownInProgress || isCursorCaptureActive || nativeScreenRecordingActive || windowsNativeCaptureActive || ffmpegScreenRecordingActive) {
+			return "Terminá la grabación antes de reiniciar para actualizar. La actualización ya está descargada.";
+		}
+		if (editorHasUnsavedChanges) return "Guardá el proyecto antes de reiniciar para actualizar. La actualización ya está descargada.";
+		return null;
+	});
 	if (IS_DEV && process.env.RECORDLY_DEV_PREVIEW_UPDATE === "1") {
 		setTimeout(() => {
 			if (process.platform === "darwin") {

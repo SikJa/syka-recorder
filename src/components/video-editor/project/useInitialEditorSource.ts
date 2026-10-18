@@ -1,5 +1,6 @@
 /* biome-ignore-all lint/correctness/useExhaustiveDependencies: editor state setters are stable and initial source loading intentionally runs once per launch configuration. */
 import { type MutableRefObject, useEffect, useRef } from "react";
+import { recordedWebcamPlacement } from "@/lib/recordingWebcamPlacement";
 import { fromFileUrl, resolveVideoUrl } from "../projectPersistence";
 import type { getDevOpenRecordingConfig, getSmokeExportConfig } from "../smokeExportConfig";
 import type { useAppearanceState } from "../state/useAppearanceState";
@@ -175,6 +176,10 @@ export function useInitialEditorSource({
 						sourcePath: sessionResult.session?.webcamPath ?? null,
 						timeOffsetMs:
 							sessionResult.session?.timeOffsetMs ?? DEFAULT_WEBCAM_TIME_OFFSET_MS,
+						...recordedWebcamPlacement(
+							sessionResult.session?.webcamLayout,
+							previous.margin,
+						),
 					}));
 					return;
 				}
@@ -229,6 +234,10 @@ export function useInitialEditorSource({
 				timeOffsetMs: webcamPath
 					? (session.timeOffsetMs ?? previous.timeOffsetMs)
 					: DEFAULT_WEBCAM_TIME_OFFSET_MS,
+				// Only when the camera first arrives, so later events never undo editor changes.
+				...(webcamPath && previous.sourcePath !== webcamPath
+					? recordedWebcamPlacement(session.webcamLayout, previous.margin)
+					: {}),
 			}));
 			timeline.setSourceAudioFallbackRefreshKey((key) => key + 1);
 		});

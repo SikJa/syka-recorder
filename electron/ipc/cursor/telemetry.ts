@@ -4,6 +4,7 @@ import {
 	CURSOR_TELEMETRY_VERSION,
 	MAX_CURSOR_SAMPLES,
 } from "../constants";
+import { getSourceArea } from "../sourceArea";
 import {
 	activeCursorSamples,
 	currentCursorVisualType,
@@ -23,7 +24,6 @@ import {
 	setPendingCursorSamples,
 } from "../state";
 import type { CursorInteractionType, CursorTelemetryPoint, CursorVisualType } from "../types";
-import { getSourceArea } from "../sourceArea";
 import { getScreen, getTelemetryPathForVideo } from "../utils";
 
 export function clamp(value: number, min: number, max: number) {
@@ -165,17 +165,14 @@ export function getCursorCaptureElapsedMs(nowMs = Date.now()) {
 	);
 }
 
-export function getNormalizedCursorPoint() {
-	const fallbackCursor = getScreen().getCursorScreenPoint();
-	const linuxCursorCache = process.platform === "linux" ? linuxCursorScreenPoint : null;
-	const isLinuxCacheFresh = !!linuxCursorCache && Date.now() - linuxCursorCache.updatedAt <= 1000;
-
+/**
+ * The recorded region in the same screen coordinates as `getCursorScreenPoint`:
+ * the selected window or area, otherwise the selected display (or the display
+ * nearest `fallbackPoint`).
+ */
+export function getCaptureBounds(fallbackPoint: { x: number; y: number }) {
 	const primarySf =
 		process.platform !== "darwin" ? getScreen().getPrimaryDisplay().scaleFactor || 1 : 1;
-
-	const cursor = isLinuxCacheFresh
-		? { x: linuxCursorCache.x / primarySf, y: linuxCursorCache.y / primarySf }
-		: fallbackCursor;
 
 	// Areas are fixed rectangles, so they normalize like a window that never moves.
 	const windowBounds = selectedSource?.id?.startsWith("window:")
@@ -189,12 +186,11 @@ export function getNormalizedCursorPoint() {
 						x: windowBounds.x / primarySf,
 						y: windowBounds.y / primarySf,
 					}).scaleFactor || 1;
-		const width = Math.max(1, windowBounds.width / sf);
-		const height = Math.max(1, windowBounds.height / sf);
-
 		return {
-			cx: clamp((cursor.x - windowBounds.x / sf) / width, 0, 1),
-			cy: clamp((cursor.y - windowBounds.y / sf) / height, 0, 1),
+			x: windowBounds.x / sf,
+			y: windowBounds.y / sf,
+			width: Math.max(1, windowBounds.width / sf),
+			height: Math.max(1, windowBounds.height / sf),
 		};
 	}
 
@@ -204,14 +200,33 @@ export function getNormalizedCursorPoint() {
 				.getAllDisplays()
 				.find((display) => display.id === sourceDisplayId) ?? null)
 		: null;
-	const display = sourceDisplay ?? getScreen().getDisplayNearestPoint(cursor);
+	const display = sourceDisplay ?? getScreen().getDisplayNearestPoint(fallbackPoint);
 	const bounds = display.bounds;
-	const width = Math.max(1, bounds.width);
-	const height = Math.max(1, bounds.height);
+	return {
+		x: bounds.x,
+		y: bounds.y,
+		width: Math.max(1, bounds.width),
+		height: Math.max(1, bounds.height),
+	};
+}
 
-	const cx = clamp((cursor.x - bounds.x) / width, 0, 1);
-	const cy = clamp((cursor.y - bounds.y) / height, 0, 1);
-	return { cx, cy };
+export function getNormalizedCursorPoint() {
+	const fallbackCursor = getScreen().getCursorScreenPoint();
+	const linuxCursorCache = process.platform === "linux" ? linuxCursorScreenPoint : null;
+	const isLinuxCacheFresh = !!linuxCursorCache && Date.now() - linuxCursorCache.updatedAt <= 1000;
+
+	const primarySf =
+		process.platform !== "darwin" ? getScreen().getPrimaryDisplay().scaleFactor || 1 : 1;
+
+	const cursor = isLinuxCacheFresh
+		? { x: linuxCursorCache.x / primarySf, y: linuxCursorCache.y / primarySf }
+		: fallbackCursor;
+
+	const bounds = getCaptureBounds(cursor);
+	return {
+		cx: clamp((cursor.x - bounds.x) / bounds.width, 0, 1),
+		cy: clamp((cursor.y - bounds.y) / bounds.height, 0, 1),
+	};
 }
 
 export function getHookCursorScreenPoint(

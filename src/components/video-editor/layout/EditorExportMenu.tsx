@@ -2,6 +2,7 @@ import { ExportErrorReportButton } from "@/components/feedback/ExportErrorReport
 import { LinkSimple, HardDrive, Export } from "@phosphor-icons/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CloudShareButton } from "../cloud/CloudShareButton";
+import { recordlyAuthConfigured } from "@/lib/auth/recordlyAuth";
 import { Card, TagGroup, Tag } from "@heroui/react";
 import { motion, useReducedMotion } from "motion/react";
 import { ProgressBar } from "@heroui/react";
@@ -43,8 +44,9 @@ type Props = {
 };
 
 export function EditorExportMenu(props: Props) {
-	const { publishDestination: destination, setPublishDestination: setDestination } =
+	const { publishDestination, setPublishDestination: setDestination } =
 		props.exportSettings;
+	const destination = recordlyAuthConfigured ? publishDestination : "local";
 	const [shareBusy, setShareBusy] = useState(false);
 	const reducedMotion = useReducedMotion();
 	const handledShareRequest = useRef(0);
@@ -63,7 +65,7 @@ export function EditorExportMenu(props: Props) {
 		return () => observer.disconnect();
 	}, [props.exportSession.showExportDropdown]);
 	useEffect(() => {
-		if (props.shareRequestNonce > handledShareRequest.current) {
+		if (recordlyAuthConfigured && props.shareRequestNonce > handledShareRequest.current) {
 			handledShareRequest.current = props.shareRequestNonce;
 			setDestination("link");
 			props.handleOpenExportDropdown();
@@ -182,11 +184,11 @@ export function EditorExportMenu(props: Props) {
 						className="inline-flex h-9 min-w-[104px] items-center justify-center gap-2 px-4.5"
 					>
 						<Export className="h-4 w-4" />
-						<span className="text-sm font-semibold tracking-tight">Publish</span>
+						<span className="text-sm font-semibold tracking-tight">{t("common.actions.export", "Export")}</span>
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent
-					aria-label="Publish"
+					aria-label={t("common.actions.export", "Export")}
 					align="end"
 					sideOffset={10}
 					className="w-[360px] max-h-none overflow-hidden p-0"
@@ -201,8 +203,8 @@ export function EditorExportMenu(props: Props) {
 					>
 						<div ref={contentRef}>
 							<div className="p-5 space-y-3">
-								<h2 className="text-sm font-semibold">Publish</h2>
-								<TagGroup
+								<h2 className="text-sm font-semibold">{t("common.actions.export", "Export")}</h2>
+								{recordlyAuthConfigured && <TagGroup
 									aria-label="Publish destination"
 									selectionMode="single"
 									disallowEmptySelection
@@ -235,7 +237,7 @@ export function EditorExportMenu(props: Props) {
 											Local
 										</Tag>
 									</TagGroup.List>
-								</TagGroup>
+								</TagGroup>}
 							</div>
 							<div>
 								{destination === "link" ? (

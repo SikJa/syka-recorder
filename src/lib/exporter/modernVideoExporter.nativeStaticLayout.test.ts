@@ -362,7 +362,7 @@ describe("ModernVideoExporter native static-layout eligibility", () => {
 		});
 	});
 
-	it("uses the default wallpaper for native static-layout when the project has no wallpaper", async () => {
+	it("uses the plain background for native static-layout when the project has no wallpaper", async () => {
 		const exporter = createExporter({ wallpaper: "" });
 		const electronAPI = window.electronAPI as typeof window.electronAPI & {
 			getAssetBasePath: () => Promise<string>;
@@ -375,8 +375,8 @@ describe("ModernVideoExporter native static-layout eligibility", () => {
 		}));
 
 		await expect(exporter.resolveNativeStaticLayoutBackground()).resolves.toEqual({
-			backgroundColor: "#101010",
-			backgroundImagePath: "C:/Recordly/resources/wallpapers/tahoe-light.jpg",
+			backgroundColor: "#121212",
+			backgroundImagePath: null,
 		});
 	});
 

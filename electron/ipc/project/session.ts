@@ -4,6 +4,7 @@ import path from "node:path";
 import { RECORDING_SESSION_MANIFEST_SUFFIX } from "../constants";
 import type { RecordingSessionData, RecordingSessionManifest } from "../types";
 import { normalizeVideoSourcePath, parseJsonWithByteOrderMark } from "../utils";
+import { sanitizeRecordingWebcamLayout } from "./webcamLayout";
 
 function normalizeRecordingTimeOffsetMs(value: unknown): number {
 	return typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 0;
@@ -36,6 +37,9 @@ export async function persistRecordingSessionManifest(
 		videoFileName: path.basename(normalizedVideoPath),
 		webcamFileName: path.basename(normalizedWebcamPath),
 		timeOffsetMs: normalizeRecordingTimeOffsetMs(session.timeOffsetMs),
+		...(sanitizeRecordingWebcamLayout(session.webcamLayout)
+			? { webcamLayout: sanitizeRecordingWebcamLayout(session.webcamLayout) }
+			: {}),
 	};
 
 	await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
@@ -80,6 +84,7 @@ export async function resolveRecordingSessionManifest(
 			videoPath: normalizedVideoPath,
 			webcamPath: webcamExists ? webcamPath : null,
 			timeOffsetMs: normalizeRecordingTimeOffsetMs(parsed.timeOffsetMs),
+			webcamLayout: sanitizeRecordingWebcamLayout(parsed.webcamLayout),
 		};
 	} catch {
 		return null;

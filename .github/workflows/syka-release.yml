@@ -1,0 +1,74 @@
+name: Syka Recorder Windows release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: syka-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    if: github.repository == 'SikJa/syka-recorder' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify tag and destination
+        run: node scripts/verify-release.mjs
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Install Electron and FFmpeg
+        run: |
+          node node_modules/electron/install.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node node_modules/ffmpeg-static/install.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx electron-builder install-app-deps
+      - name: Verify source and integration
+        run: |
+          npm run audit:publication
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx vitest run electron/syka-transfer src/lib/sykaExport electron/ipc/register/sources.test.ts electron/ipc/register/capturePicker.test.ts electron/updater.test.ts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test scripts/normalize-electron-main-cjs.test.mjs
+      - name: Build Windows installer and update metadata
+        run: npm run build:win -- --publish never
+      - name: Verify packaged binaries and checksums
+        run: |
+          npm run smoke:packaged-binaries
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run checksums:release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: syka-recorder-windows
+          path: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+      - name: Upload complete release as draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          gh release view $tag --repo $env:GITHUB_REPOSITORY --json isDraft --jq .isDraft > draft-state.txt
+          if ($LASTEXITCODE -eq 0) {
+            if ((Get-Content draft-state.txt).Trim() -ne 'true') { throw 'Published releases are immutable; increment the version.' }
+          } else {
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --verify-tag --draft --title "Syka Recorder $tag" --generate-notes
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          $assets = @(Get-ChildItem release/*.exe,release/*.blockmap,release/latest.yml,release/SHA256SUMS.txt | ForEach-Object FullName)
+          gh release upload $tag @assets --repo $env:GITHUB_REPOSITORY --clobber

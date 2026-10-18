@@ -10,6 +10,7 @@ import {
 	createHudOverlayWindow,
 	getHudOverlayWindow,
 	reassertHudOverlayMousePassthrough,
+	moveHudOverlayToCaptureBounds,
 } from "../../windows";
 import { ALLOW_RECORDLY_WINDOW_CAPTURE } from "../constants";
 import {
@@ -43,6 +44,10 @@ function normalizeDesktopSourceName(value: string) {
 }
 
 export function broadcastSelectedSourceChange() {
+	if (selectedSource && selectedSource.id !== LINUX_PORTAL_SCREEN_SOURCE_ID && (selectedSource.id?.startsWith("screen:") || getSourceArea(selectedSource))) {
+		const bounds = getSourceArea(selectedSource) ?? getDisplayBoundsForSource(selectedSource);
+		if (bounds) moveHudOverlayToCaptureBounds(bounds);
+	}
 	for (const window of BrowserWindow.getAllWindows()) {
 		if (!window.isDestroyed()) {
 			window.webContents.send("selected-source-changed", selectedSource);
@@ -653,7 +658,10 @@ body{background:transparent;overflow:hidden;width:100vw;height:100vh}
 		recordingNavigation.setReturnWindow(BrowserWindow.fromWebContents(event.sender));
 		const hud = getHudOverlayWindow();
 		if (hud && !hud.isDestroyed()) {
+			if (hud.isMinimized()) hud.restore();
 			hud.show();
+			hud.moveTop();
+			reassertHudOverlayMousePassthrough();
 			hud.focus();
 		} else {
 			createHudOverlayWindow();

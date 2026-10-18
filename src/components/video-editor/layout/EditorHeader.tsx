@@ -1,4 +1,5 @@
 import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
+import { recordlyAuthConfigured } from "@/lib/auth/recordlyAuth";
 import { Separator } from "@heroui/react";
 import {
 	House,
@@ -17,11 +18,14 @@ import type { useVideoEditorPresets } from "../presets/useVideoEditorPresets";
 import type { useProjectState } from "../state/useProjectState";
 import { EditorExportMenu } from "./EditorExportMenu";
 import { EditorPresetMenu } from "./EditorPresetMenu";
+import { SykaTransferButton } from "../export/SykaTransferButton";
+import type { useSykaTransfer } from "../export/useSykaTransfer";
 
 // Keep the preset implementation available for future use.
 const SHOW_PRESETS_BUTTON = false;
 
 type Props = {
+	sykaTransfer: ReturnType<typeof useSykaTransfer>;
 	clipsOpen: boolean;
 	onToggleClips: () => void;
 	t: ReturnType<typeof useI18n>["t"];
@@ -222,7 +226,8 @@ export function EditorHeader(props: Props) {
 					</Button>
 				</div>
 				{SHOW_PRESETS_BUTTON && <EditorPresetMenu t={t} presets={presets} />}
-				<FeedbackDialog />
+				{recordlyAuthConfigured && <FeedbackDialog />}
+				<SykaTransferButton transfer={props.sykaTransfer} disabled={exportSession.isExporting || !project.videoPath} />
 				<EditorExportMenu
 					t={t}
 					exportSettings={exportSettings}

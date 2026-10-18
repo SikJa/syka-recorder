@@ -31,6 +31,7 @@ concurrency:
 
 jobs:
   prepare-release:
+    if: github.repository == 'webadderallorg/Recordly'
     name: Prepare release
     runs-on: ubuntu-latest
     outputs:

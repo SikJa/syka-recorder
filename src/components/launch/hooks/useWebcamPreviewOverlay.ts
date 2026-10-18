@@ -1,4 +1,5 @@
 import { type PointerEvent, useCallback, useEffect, useRef, useState } from "react";
+import { acquireSharedWebcamStream, type WebcamStreamLease } from "@/lib/sharedWebcamStream";
 import {
 	canShowFloatingWebcamPreview,
 	DEFAULT_WEBCAM_PREVIEW_SIZE,
@@ -8,6 +9,7 @@ import {
 	type WebcamPreviewResizeHandle,
 } from "../floatingWebcamPreview";
 import { shouldRestoreHudMousePassthroughAfterDrag } from "../hudMousePassthrough";
+import { clampHudOffsetToViewport } from "../hudViewportBounds";
 
 const WEBCAM_PREVIEW_DRAG_THRESHOLD = 6;
 const DEFAULT_WEBCAM_PREVIEW_OFFSET = { x: 0, y: 0 };
@@ -94,6 +96,29 @@ export function useWebcamPreviewOverlay({
 		!editorMode &&
 		webcamEnabled &&
 		(showRecordingWebcamPreview || (showWebcamControls && webcamPopoverOpen));
+
+	useEffect(() => {
+		if (!showRecordingWebcamPreview) return;
+		const keepCameraInsideViewport = () => {
+			const container = recordingWebcamPreviewContainerRef.current;
+			if (!container || isWebcamPreviewDraggingRef.current) return;
+			const next = clampHudOffsetToViewport(webcamPreviewOffsetRef.current, container.getBoundingClientRect(), {
+				width: window.innerWidth, height: window.innerHeight,
+			});
+			if (next.x === webcamPreviewOffsetRef.current.x && next.y === webcamPreviewOffsetRef.current.y) return;
+			webcamPreviewOffsetRef.current = next;
+			container.style.transform = `translate(${next.x}px, ${next.y}px)`;
+			setWebcamPreviewOffset(next);
+		};
+		const observer = new ResizeObserver(keepCameraInsideViewport);
+		if (recordingWebcamPreviewContainerRef.current) observer.observe(recordingWebcamPreviewContainerRef.current);
+		window.addEventListener("resize", keepCameraInsideViewport);
+		keepCameraInsideViewport();
+		return () => {
+			observer.disconnect();
+			window.removeEventListener("resize", keepCameraInsideViewport);
+		};
+	}, [showRecordingWebcamPreview]);
 
 	useEffect(() => {
 		if (!webcamEnabled) {
@@ -348,30 +373,17 @@ export function useWebcamPreviewOverlay({
 	useEffect(() => {
 		let mounted = true;
 
+		let acquisition: WebcamStreamLease | null = null;
 		const startPreview = async () => {
 			if (!shouldStreamWebcamPreview) {
 				return;
 			}
 
 			try {
-				const previewStream = await navigator.mediaDevices.getUserMedia({
-					video: webcamDeviceId
-						? {
-								deviceId: { exact: webcamDeviceId },
-								width: { ideal: 320 },
-								height: { ideal: 320 },
-								frameRate: { ideal: 24, max: 30 },
-							}
-						: {
-								width: { ideal: 320 },
-								height: { ideal: 320 },
-								frameRate: { ideal: 24, max: 30 },
-							},
-					audio: false,
-				});
+				acquisition = acquireSharedWebcamStream(webcamDeviceId);
+				const previewStream = await acquisition.stream;
 
 				if (!mounted) {
-					previewStream.getTracks().forEach((track) => track.stop());
 					return;
 				}
 
@@ -397,7 +409,7 @@ export function useWebcamPreviewOverlay({
 					videoElement.pause();
 					videoElement.srcObject = null;
 				});
-			previewStream?.getTracks().forEach((track) => track.stop());
+			acquisition?.release();
 			if (previewStreamRef.current === previewStream) {
 				previewStreamRef.current = null;
 			}

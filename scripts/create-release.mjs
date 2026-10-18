@@ -95,9 +95,14 @@ function resolveGhBinary() {
 
 try {
 	const options = parseArgs(process.argv.slice(2));
+	const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+	if (options.tag !== `v${pkg.version}`) throw new Error("Tag must match package.json version");
+	if (pkg.repository.url !== "https://github.com/SikJa/syka-recorder.git") {
+		throw new Error("Unexpected release repository");
+	}
 	const notes = loadNotes(options).trim();
 	const ghBinary = resolveGhBinary();
-	const commandArgs = ["release", "create", options.tag, "--verify-tag", "--generate-notes"];
+	const commandArgs = ["release", "create", options.tag, "--repo", "SikJa/syka-recorder", "--verify-tag", "--generate-notes"];
 
 	if (options.title) {
 		commandArgs.push("--title", options.title);

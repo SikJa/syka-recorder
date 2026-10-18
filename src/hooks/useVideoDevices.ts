@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { acquireSharedWebcamStream, type WebcamStreamLease } from "@/lib/sharedWebcamStream";
+
+let hasRequestedVideoLabels = false;
 
 export interface VideoDevice {
 	deviceId: string;
@@ -22,6 +25,7 @@ export function useVideoDevices(enabled: boolean = true) {
 
 		const loadDevices = async () => {
 			const loadId = ++activeLoadId;
+			let permissionAcquisition: WebcamStreamLease | null = null;
 
 			try {
 				if (mounted && loadId === activeLoadId) {
@@ -29,7 +33,17 @@ export function useVideoDevices(enabled: boolean = true) {
 					setError(null);
 				}
 
-				const allDevices = await navigator.mediaDevices.enumerateDevices();
+				let allDevices = await navigator.mediaDevices.enumerateDevices();
+				const rawInputs = allDevices.filter((device) => device.kind === "videoinput");
+				if (
+					(rawInputs.length === 0 || rawInputs.every((device) => !device.label.trim())) &&
+					!hasRequestedVideoLabels
+				) {
+					hasRequestedVideoLabels = true;
+					permissionAcquisition = acquireSharedWebcamStream();
+					await permissionAcquisition.stream;
+					allDevices = await navigator.mediaDevices.enumerateDevices();
+				}
 				const videoInputs = allDevices
 					.filter((device) => device.kind === "videoinput")
 					.map((device, index) => ({
@@ -65,6 +79,7 @@ export function useVideoDevices(enabled: boolean = true) {
 					console.error("Error loading video devices:", error);
 				}
 			} finally {
+				permissionAcquisition?.release();
 				if (mounted && loadId === activeLoadId) {
 					setIsLoading(false);
 				}

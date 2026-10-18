@@ -17,7 +17,9 @@ import {
 	shouldExpandHudOverlayFallback,
 } from "./hudOverlayBounds";
 import { getHudOverlayTaskbarOptions } from "./hudOverlayWindowOptions";
+import { getHudInputShape } from "./hudInputShape";
 import { getPackagedRendererBaseUrl } from "./rendererServer";
+import { createRecordingInkController } from './recordingInk';
 
 const electronWindowsDir = path.dirname(fileURLToPath(import.meta.url));
 const nodeRequire = createRequire(import.meta.url);
@@ -25,10 +27,16 @@ const nodeRequire = createRequire(import.meta.url);
 const APP_ROOT = path.join(electronWindowsDir, "..");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 const RENDERER_DIST = path.join(APP_ROOT, "dist");
-const WINDOW_ICON_FILENAME =
-	process.platform === "darwin" ? "recordlymac-512.png" : "recordly-512.png";
+const recordingInk = createRecordingInkController({
+  getHud: () => getHudOverlayWindow(),
+  preload: path.join(electronWindowsDir, 'preload.cjs'),
+  load: window => VITE_DEV_SERVER_URL
+    ? window.loadURL(VITE_DEV_SERVER_URL + '?windowType=recording-ink')
+    : window.loadFile(path.join(RENDERER_DIST,'index.html'),{query:{windowType:'recording-ink'}}),
+});
+const WINDOW_ICON_FILENAME = "syka-recorder-512.png";
 const WINDOW_ICON_PATH = path.join(
-	process.env.VITE_PUBLIC || RENDERER_DIST,
+	process.env.VITE_PUBLIC || (VITE_DEV_SERVER_URL ? path.join(APP_ROOT, "public") : RENDERER_DIST),
 	"app-icons",
 	WINDOW_ICON_FILENAME,
 );
@@ -227,12 +235,23 @@ function getScreen() {
 	return nodeRequire("electron").screen as typeof import("electron").screen;
 }
 
+let hudSelectedDisplayId: number | null = null;
+
 function getHudOverlayDisplay() {
+	const selectedDisplay = getScreen().getAllDisplays().find((display) => display.id === hudSelectedDisplayId);
+	if (selectedDisplay) return selectedDisplay;
 	const hudWindow = getHudOverlayWindow();
 	if (hudWindow) {
 		return getScreen().getDisplayMatching(hudWindow.getBounds());
 	}
 	return getScreen().getPrimaryDisplay();
+}
+
+/** Keep the toolbar and its live camera on the screen selected for capture. */
+export function moveHudOverlayToCaptureBounds(bounds: Electron.Rectangle) {
+	hudSelectedDisplayId = getScreen().getDisplayMatching(bounds).id;
+	applyHudOverlayBounds();
+	reassertHudOverlayMousePassthrough();
 }
 
 function getHudOverlayBounds() {
@@ -341,6 +360,12 @@ function setHudOverlayMousePassthrough(ignore: boolean) {
 		return;
 	}
 
+	if (process.platform === "win32") {
+		// The native window shape handles empty regions without forwarded hover.
+		hudOverlayWindow.setIgnoreMouseEvents(hudOverlaySourceSelectionActive && !hudOverlayRecordingActive);
+		return;
+	}
+
 	if (hudOverlayRecordingActive) {
 		hudOverlayFallbackExpanded = false;
 		applyHudOverlayBounds();
@@ -366,10 +391,18 @@ ipcMain.on("hud-overlay-set-ignore-mouse", (_event, ignore: boolean) => {
 	setHudOverlayMousePassthrough(Boolean(ignore));
 });
 
+ipcMain.on("hud-overlay-set-input-regions", (event, regions: unknown) => {
+	const hud = getHudOverlayWindow();
+	if (process.platform !== "win32" || !hud || event.sender !== hud.webContents) return;
+	const { width, height } = hud.getContentBounds();
+	hud.setShape(getHudInputShape(regions, width, height));
+});
+
 ipcMain.on("hud-overlay-set-source-selection-active", (_event, active: boolean) => {
 	hudOverlaySourceSelectionActive = Boolean(active);
 	if (hudOverlaySourceSelectionActive) {
 		hudOverlayFallbackExpanded = false;
+		setHudOverlayMousePassthrough(true);
 		applyHudOverlayBounds();
 		return;
 	}
@@ -512,6 +545,8 @@ export function createHudOverlayWindow(): BrowserWindow {
 	const win = new BrowserWindow({
 		width: initialBounds.width,
 		height: initialBounds.height,
+		icon: WINDOW_ICON_PATH,
+		title: "Syka Recorder",
 		x: initialBounds.x,
 		y: initialBounds.y,
 		frame: false,
@@ -525,7 +560,7 @@ export function createHudOverlayWindow(): BrowserWindow {
 		hasShadow: false,
 		show: false,
 		webPreferences: {
-			preload: path.join(electronWindowsDir, "preload.mjs"),
+			preload: path.join(electronWindowsDir, "preload.cjs"),
 			nodeIntegration: false,
 			contextIsolation: true,
 			webSecurity: false,
@@ -533,7 +568,8 @@ export function createHudOverlayWindow(): BrowserWindow {
 		},
 	});
 	// Keep the recording controls and webcam above normal and full-screen apps.
-	// Transparent regions remain click-through via setIgnoreMouseEvents().
+	// Empty regions pass through via a native shape on Windows and mouse
+	// forwarding on macOS.
 	win.setAlwaysOnTop(true, "screen-saver");
 	if (process.platform === "darwin") {
 		win.setVisibleOnAllWorkspaces(true, {
@@ -584,7 +620,10 @@ export function createHudOverlayWindow(): BrowserWindow {
 		}
 	});
 
-	if (isHudOverlayMousePassthroughSupported()) {
+	if (process.platform === "win32") {
+		win.setShape(getHudInputShape([], initialBounds.width, initialBounds.height));
+		win.setIgnoreMouseEvents(false);
+	} else if (isHudOverlayMousePassthroughSupported()) {
 		if (hudOverlayRecordingActive) {
 			hudOverlayIgnoringMouse = false;
 			win.setIgnoreMouseEvents(false);
@@ -594,11 +633,8 @@ export function createHudOverlayWindow(): BrowserWindow {
 		}
 	}
 
-	// On Windows 11+, focus changes (e.g. showing a native notification) can break
-	// setIgnoreMouseEvents forwarding on a transparent always-on-top window, making
-	// it permanently click-through without hover detection.  Re-initialise the
-	// pass-through-with-forwarding state whenever the window gains focus by toggling
-	// the flag off then back on so the native WS_EX_TRANSPARENT flag is fully reset.
+	// Restore native input after Windows focus changes. The shape continues to
+	// exclude the desktop; only an active source picker ignores the controls too.
 	if (process.platform === "win32" && isHudOverlayMousePassthroughSupported()) {
 		win.on("focus", () => {
 			if (!win.isDestroyed()) {
@@ -705,14 +741,8 @@ export function getHudOverlayWindow(): BrowserWindow | null {
 }
 
 /**
- * Re-initialise the HUD overlay's mouse passthrough state.
- *
- * On Windows 11+, any new BrowserWindow appearing (even focusable:false ones
- * like the source highlight overlay) can silently corrupt the
- * WS_EX_TRANSPARENT flag that backs setIgnoreMouseEvents forwarding.  Call
- * this after any operation that creates or destroys a sibling window so that
- * hover detection on the HUD is immediately restored without requiring the
- * user to move their mouse over the bar.
+ * Restore the HUD's Windows input state after a sibling overlay changes focus.
+ * The native shape keeps desktop regions outside the window's input area.
  */
 export function reassertHudOverlayMousePassthrough(): void {
 	if (process.platform !== "win32" || !isHudOverlayMousePassthroughSupported()) {
@@ -724,8 +754,7 @@ export function reassertHudOverlayMousePassthrough(): void {
 		return;
 	}
 
-	// Toggle off then back on so the native WS_EX_TRANSPARENT flag is fully
-	// re-initialised rather than merely re-asserted in a potentially broken state.
+	// Clear any stale whole-window ignore flag, then restore source-picker state.
 	hud.setIgnoreMouseEvents(false);
 	if (hudOverlayMouseReassertTimer) {
 		clearTimeout(hudOverlayMouseReassertTimer);
@@ -739,15 +768,15 @@ export function reassertHudOverlayMousePassthrough(): void {
 }
 
 export function setHudOverlayRecordingActive(recording: boolean): void {
+  recordingInk.setRecording(recording);
 	hudCaptureStarting = false;
 	hudOverlayRecordingActive = Boolean(recording);
 	notifyEditorMode();
 	hudOverlayFallbackExpanded = false;
 	applyHudOverlayBounds();
 	reassertHudOverlayCaptureProtection();
-	// Start in passthrough mode. Forwarded pointer movement lets the renderer
-	// make the visible HUD controls interactive when the pointer reaches them,
-	// while transparent parts never block the recorded application.
+	// Preserve passthrough outside the controls (native shape on Windows,
+	// forwarded pointer movement on macOS).
 	setHudOverlayMousePassthrough(true);
 }
 
@@ -769,7 +798,7 @@ export function createUpdateToastWindow(): BrowserWindow {
 		focusable: true,
 		backgroundColor: "#00000000",
 		webPreferences: {
-			preload: path.join(electronWindowsDir, "preload.mjs"),
+			preload: path.join(electronWindowsDir, "preload.cjs"),
 			nodeIntegration: false,
 			contextIsolation: true,
 			backgroundThrottling: false,
@@ -986,11 +1015,11 @@ export function createEditorWindow(): BrowserWindow {
 		resizable: true,
 		alwaysOnTop: false,
 		skipTaskbar: false,
-		title: "Recordly",
+		title: "Syka Recorder",
 		show: false,
 		backgroundColor: "#000000",
 		webPreferences: {
-			preload: path.join(electronWindowsDir, "preload.mjs"),
+			preload: path.join(electronWindowsDir, "preload.cjs"),
 			nodeIntegration: false,
 			contextIsolation: true,
 			webSecurity: false,
@@ -1090,7 +1119,7 @@ export function createSourceSelectorWindow(): BrowserWindow {
 		}),
 		backgroundColor: "#00000000",
 		webPreferences: {
-			preload: path.join(electronWindowsDir, "preload.mjs"),
+			preload: path.join(electronWindowsDir, "preload.cjs"),
 			nodeIntegration: false,
 			contextIsolation: true,
 		},
@@ -1137,7 +1166,7 @@ export function createCountdownWindow(): BrowserWindow {
 		focusable: true,
 		show: false,
 		webPreferences: {
-			preload: path.join(electronWindowsDir, "preload.mjs"),
+			preload: path.join(electronWindowsDir, "preload.cjs"),
 			nodeIntegration: false,
 			contextIsolation: true,
 		},
@@ -1220,7 +1249,7 @@ export function createCapturePickerWindows(onClosed: () => void): BrowserWindow[
 				backgroundColor: "#00000000",
 				...(process.platform === "darwin" ? { type: "panel" as const } : {}),
 				webPreferences: {
-					preload: path.join(electronWindowsDir, "preload.mjs"),
+					preload: path.join(electronWindowsDir, "preload.cjs"),
 					nodeIntegration: false,
 					contextIsolation: true,
 				},

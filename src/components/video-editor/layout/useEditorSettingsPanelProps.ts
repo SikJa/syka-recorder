@@ -1,4 +1,5 @@
 import type { ComponentProps, Dispatch, SetStateAction } from "react";
+import { useCallback } from "react";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { useClipAudioReset } from "../audio/useClipAudioReset";
 import type { useAutoCaptionController } from "../captions/useAutoCaptionController";
@@ -49,18 +50,12 @@ export function useEditorSettingsPanelProps(input: Input): ComponentProps<typeof
 		audioCommands,
 		captionCommands,
 		annotationCommands,
-		autoCaptionController,
 		effectiveShowCursor,
 		handleShowCursorChange,
 		currentTime,
 		isPlaying,
 		aspectRatio,
 		setAspectRatio,
-		whisperExecutablePath,
-		whisperModelPath,
-		whisperModelDownloadStatus,
-		whisperModelDownloadProgress,
-		isGeneratingCaptions,
 		sessionNativeCaptureUnavailable,
 		setNativeCaptureUnavailableModalOpen,
 		handleUploadWebcam,
@@ -77,6 +72,10 @@ export function useEditorSettingsPanelProps(input: Input): ComponentProps<typeof
 	);
 
 	const clipAudioReset = useClipAudioReset(timeline);
+	const onOpenNativeCaptureUnavailableModal = useCallback(
+		() => setNativeCaptureUnavailableModalOpen(true),
+		[setNativeCaptureUnavailableModalOpen],
+	);
 
 	return {
 		...clipAudioReset,
@@ -85,12 +84,10 @@ export function useEditorSettingsPanelProps(input: Input): ComponentProps<typeof
 		selected: appearance.wallpaper,
 		onWallpaperChange: appearance.setWallpaper,
 		selectedZoomDepth: selectedZoom?.depth ?? null,
-		onZoomDepthChange: (depth) =>
-			timeline.selectedZoomId && zoomCommands.handleZoomDepthChange(depth),
+		onZoomDepthChange: zoomCommands.handleZoomDepthChange,
 		selectedZoomId: timeline.selectedZoomId,
 		selectedZoomMode: selectedZoom?.mode ?? (timeline.selectedZoomId ? "auto" : null),
-		onZoomModeChange: (mode) =>
-			timeline.selectedZoomId && zoomCommands.handleZoomModeChange(mode),
+		onZoomModeChange: zoomCommands.handleZoomModeChange,
 		onZoomDelete: zoomCommands.handleZoomDelete,
 		selectedClipId: timeline.selectedClipId,
 		selectedClipSpeed: selectedClip?.speed ?? (timeline.selectedClipId ? 1 : null),
@@ -174,7 +171,9 @@ export function useEditorSettingsPanelProps(input: Input): ComponentProps<typeof
 		webcam: appearance.webcam,
 		webcamPreviewSrc: appearance.webcam.sourcePath ? appearance.resolvedWebcamVideoUrl : null,
 		webcamPreviewCurrentTime:
-			mapTimelineTimeToSourceTime(currentTime * 1000, timeline.clipRegions) / 1000,
+			activeEffectSection === "webcam"
+				? mapTimelineTimeToSourceTime(currentTime * 1000, timeline.clipRegions) / 1000
+				: 0,
 		webcamPreviewPlaying: isPlaying,
 		onWebcamChange: appearance.setWebcam,
 		onUploadWebcam: handleUploadWebcam,
@@ -189,17 +188,12 @@ export function useEditorSettingsPanelProps(input: Input): ComponentProps<typeof
 		annotationRegions: timeline.annotationRegions,
 		autoCaptions: timeline.autoCaptions,
 		autoCaptionSettings: timeline.autoCaptionSettings,
-		whisperExecutablePath,
-		whisperModelPath,
-		whisperModelDownloadStatus,
-		whisperModelDownloadProgress,
-		isGeneratingCaptions,
 		onAutoCaptionSettingsChange: timeline.setAutoCaptionSettings,
-		onPickWhisperExecutable: autoCaptionController.handlePickWhisperExecutable,
-		onPickWhisperModel: autoCaptionController.handlePickWhisperModel,
-		onGenerateAutoCaptions: autoCaptionController.handleGenerateAutoCaptions,
 		onClearAutoCaptions: captionCommands.handleClearAutoCaptions,
-		captionCurrentTimeMs: mapTimelineTimeToSourceTime(currentTime * 1000, timeline.clipRegions),
+		captionCurrentTimeMs:
+			activeEffectSection === "captions"
+				? mapTimelineTimeToSourceTime(currentTime * 1000, timeline.clipRegions)
+				: 0,
 		selectedCaptionId: timeline.selectedCaptionId,
 		onBeginCaptionEdit: captionCommands.handleBeginCaptionEdit,
 		onCaptionTextEdit: captionCommands.handleCaptionTextEdit,
@@ -207,10 +201,8 @@ export function useEditorSettingsPanelProps(input: Input): ComponentProps<typeof
 		onCaptionSplit: captionCommands.handleCaptionSplit,
 		onCaptionMerge: captionCommands.handleCaptionMerge,
 		onCaptionDelete: captionCommands.handleCaptionDelete,
-		onDownloadWhisperSmallModel: autoCaptionController.handleDownloadWhisperSmallModel,
-		onDeleteWhisperSmallModel: autoCaptionController.handleDeleteWhisperSmallModel,
 		nativeCaptureUnavailableSession: sessionNativeCaptureUnavailable,
-		onOpenNativeCaptureUnavailableModal: () => setNativeCaptureUnavailableModalOpen(true),
+		onOpenNativeCaptureUnavailableModal,
 		onAnnotationContentChange: annotationCommands.handleAnnotationContentChange,
 		onAnnotationTypeChange: annotationCommands.handleAnnotationTypeChange,
 		onAnnotationStyleChange: annotationCommands.handleAnnotationStyleChange,

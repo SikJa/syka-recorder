@@ -3,10 +3,44 @@ import { describe, expect, it } from "vitest";
 import {
 	shouldStartWindowsBrowserMicrophoneFallback,
 	shouldUseWindowsBrowserMicrophoneFallback,
+	supportsWindowsNativeMicrophoneFallback,
 	WINDOWS_MIC_CAPTURE_MODE_ENV,
 } from "./windowsFallbacks";
 
 describe("shouldUseWindowsBrowserMicrophoneFallback", () => {
+	it("uses the existing browser recorder with a helper older than Recordly's native mic fix", () => {
+		const supported = supportsWindowsNativeMicrophoneFallback(
+			Buffer.from("Recording started\0WASAPI: GetBuffer failed"),
+		);
+		expect(supported).toBe(false);
+		expect(
+			shouldStartWindowsBrowserMicrophoneFallback(
+				{ capturesMicrophone: true },
+				{},
+				supported,
+			),
+		).toBe(true);
+		expect(
+			shouldStartWindowsBrowserMicrophoneFallback(
+				{ capturesMicrophone: false },
+				{},
+				supported,
+			),
+		).toBe(false);
+	});
+	it("retains native mic capture for helpers with startup failure reporting", () => {
+		const supported = supportsWindowsNativeMicrophoneFallback(
+			Buffer.from("MICROPHONE_CAPTURE_UNAVAILABLE\0Recording started"),
+		);
+		expect(supported).toBe(true);
+		expect(
+			shouldStartWindowsBrowserMicrophoneFallback(
+				{ capturesMicrophone: true },
+				{},
+				supported,
+			),
+		).toBe(false);
+	});
 	it("defaults Windows microphone capture to native WASAPI", () => {
 		expect(shouldStartWindowsBrowserMicrophoneFallback({ capturesMicrophone: true }, {})).toBe(
 			false,

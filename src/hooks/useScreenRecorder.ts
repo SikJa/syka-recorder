@@ -3,7 +3,9 @@ import { fixWebmDuration } from "@fix-webm-duration/fix";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@/components/ui/toast";
 import { getEffectiveRecordingDurationMs } from "@/lib/mediaTiming";
-import { hasRecordlySession } from "@/lib/auth/recordlyAuth";
+import { canStartLocalRecording } from "@/lib/auth/recordlyAuth";
+import { readRecordingWebcamPreviewRect, type ScreenRect } from "@/lib/recordingWebcamPlacement";
+import { acquireSharedWebcamStream, type WebcamStreamLease } from "@/lib/sharedWebcamStream";
 import {
 	getVideoExtensionForMimeType,
 	isWebmMimeType,
@@ -33,11 +35,7 @@ const CHROME_MEDIA_SOURCE = "desktop";
 const RECORDING_FILE_PREFIX = "recording-";
 const AUDIO_BITRATE_VOICE = 128_000;
 const AUDIO_BITRATE_SYSTEM = 192_000;
-const MIC_GAIN_BOOST = 1.4;
 const WEBCAM_BITRATE = 8_000_000;
-const WEBCAM_WIDTH = 1280;
-const WEBCAM_HEIGHT = 720;
-const WEBCAM_FRAME_RATE = 30;
 const WEBCAM_SUFFIX = "-webcam";
 const MICROPHONE_FALLBACK_ERROR_TOAST_ID = "recording-microphone-fallback-error";
 const MICROPHONE_SIDECAR_ERROR_TOAST_ID = "recording-microphone-sidecar-error";
@@ -392,12 +390,15 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const screenStream = useRef<MediaStream | null>(null);
 	const microphoneStream = useRef<MediaStream | null>(null);
 	const webcamStream = useRef<MediaStream | null>(null);
+	const webcamAcquisition = useRef<WebcamStreamLease | null>(null);
 	const mixingContext = useRef<AudioContext | null>(null);
 	const chunks = useRef<Blob[]>([]);
 	const webcamChunks = useRef<Blob[]>([]);
 	const startTime = useRef<number>(0);
 	const webcamStartTime = useRef<number | null>(null);
 	const webcamTimeOffsetMs = useRef(0);
+	// Where the floating webcam preview sat when recording stopped; the editor starts there.
+	const webcamPreviewRectAtStop = useRef<ScreenRect | null>(null);
 	const recordingSessionTimestamp = useRef<number | null>(null);
 	const nativeScreenRecording = useRef(false);
 	const nativeWindowsRecording = useRef(false);
@@ -548,7 +549,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	}, []);
 
 	const preparePermissions = useCallback(async () => {
-		if (!(await hasRecordlySession().catch(() => false))) {
+		if (!(await canStartLocalRecording().catch(() => false))) {
 			await window.electronAPI.showRecordingPermissions();
 			return false;
 		}
@@ -612,6 +613,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			webcamStream.current.getTracks().forEach((track) => track.stop());
 			webcamStream.current = null;
 		}
+		webcamAcquisition.current?.release();
+		webcamAcquisition.current = null;
 
 		if (mixingContext.current) {
 			mixingContext.current.close().catch(() => undefined);
@@ -728,6 +731,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						videoPath,
 						webcamPath,
 						timeOffsetMs: webcamTimeOffsetMs.current,
+						webcamPreviewRect: webcamPreviewRectAtStop.current,
 						hideOverlayCursorByDefault: shouldHideOverlayCursor,
 					});
 				} else {
@@ -998,21 +1002,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		}
 
 		try {
-			webcamStream.current = await navigator.mediaDevices.getUserMedia({
-				video: webcamDeviceId
-					? {
-							deviceId: { exact: webcamDeviceId },
-							width: { ideal: WEBCAM_WIDTH },
-							height: { ideal: WEBCAM_HEIGHT },
-							frameRate: { ideal: WEBCAM_FRAME_RATE, max: WEBCAM_FRAME_RATE },
-						}
-					: {
-							width: { ideal: WEBCAM_WIDTH },
-							height: { ideal: WEBCAM_HEIGHT },
-							frameRate: { ideal: WEBCAM_FRAME_RATE, max: WEBCAM_FRAME_RATE },
-						},
-				audio: false,
-			});
+			webcamAcquisition.current = acquireSharedWebcamStream(webcamDeviceId);
+			const sharedStream = await webcamAcquisition.current.stream;
+			const track = sharedStream.getVideoTracks()[0];
+			if (!track || track.readyState !== "live") throw new Error("Camera has no live video track");
+			webcamStream.current = new MediaStream([track.clone()]);
 
 			const mimeType = selectWebcamMimeType();
 			webcamChunks.current = [];
@@ -1077,6 +1071,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						webcamStream.current.getTracks().forEach((track) => track.stop());
 						webcamStream.current = null;
 					}
+					webcamAcquisition.current?.release();
+					webcamAcquisition.current = null;
 				}
 			};
 		} catch (error) {
@@ -1084,6 +1080,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				"Failed to start webcam recording; continuing without webcam layer:",
 				error,
 			);
+			toast.error("No se pudo iniciar la webcam. Revisá que la cámara esté conectada y disponible.");
+			webcamAcquisition.current?.release();
+			webcamAcquisition.current = null;
 			resolvedWebcamPath.current = null;
 			pendingWebcamPathPromise.current = Promise.resolve(null);
 			webcamStopPromise.current = Promise.resolve(null);
@@ -1236,6 +1235,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	}, []);
 
 	const stopRecording = useRef(() => {
+		webcamPreviewRectAtStop.current = readRecordingWebcamPreviewRect();
 		recordingStartGeneration.current += 1;
 		setPaused(false);
 		if (nativeScreenRecording.current && nativeWarmStartActive.current) {
@@ -1352,6 +1352,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 										videoPath: finalPath,
 										webcamPath,
 										timeOffsetMs: webcamTimeOffsetMs.current,
+										webcamPreviewRect: webcamPreviewRectAtStop.current,
 										hideOverlayCursorByDefault:
 											hideEditorOverlayCursorByDefault.current,
 									});
@@ -1406,6 +1407,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 							videoPath: finalPath,
 							webcamPath,
 							timeOffsetMs: webcamTimeOffsetMs.current,
+							webcamPreviewRect: webcamPreviewRectAtStop.current,
 							hideOverlayCursorByDefault: hideEditorOverlayCursorByDefault.current,
 						});
 
@@ -2041,12 +2043,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					const micSource = context.createMediaStreamSource(
 						new MediaStream([micAudioTrack]),
 					);
-					const micGain = context.createGain();
-					micGain.gain.value = MIC_GAIN_BOOST;
 					const destination = context.createMediaStreamDestination();
 
 					systemSource.connect(destination);
-					micSource.connect(micGain).connect(destination);
+					// Preserve the selected microphone level; an implicit boost clips loud speech.
+					micSource.connect(destination);
 
 					const mixedTrack = destination.stream.getAudioTracks()[0];
 					if (mixedTrack) {
@@ -2191,6 +2192,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 										videoPath: finalVideoPath,
 										webcamPath,
 										timeOffsetMs: webcamTimeOffsetMs.current,
+										webcamPreviewRect: webcamPreviewRectAtStop.current,
 										hideOverlayCursorByDefault:
 											hideEditorOverlayCursorByDefault.current,
 									});
@@ -2409,6 +2411,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		webcamTimeOffsetMs.current = 0;
 		webcamStream.current?.getTracks().forEach((t) => t.stop());
 		webcamStream.current = null;
+		webcamAcquisition.current?.release();
+		webcamAcquisition.current = null;
 		pendingWebcamPathPromise.current = null;
 		resolvedWebcamPath.current = null;
 

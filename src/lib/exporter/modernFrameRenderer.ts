@@ -27,6 +27,7 @@ import type {
 	ZoomTransitionEasing,
 } from "@/components/video-editor/types";
 import {
+	DEFAULT_CURSOR_STYLE,
 	DEFAULT_WEBCAM_ROUNDNESS,
 	getDefaultCaptionFontFamily,
 } from "@/components/video-editor/types";
@@ -555,7 +556,7 @@ export class FrameRenderer {
 		if (cursorOverlayEnabled) {
 			this.cursorOverlay = new PixiCursorOverlay({
 				dotRadius: DEFAULT_CURSOR_CONFIG.dotRadius * (this.config.cursorSize ?? 1.4),
-				style: this.config.cursorStyle ?? "tahoe",
+				style: this.config.cursorStyle ?? DEFAULT_CURSOR_STYLE,
 				smoothingFactor:
 					this.config.cursorSmoothing ?? DEFAULT_CURSOR_CONFIG.smoothingFactor,
 				springTuning: {

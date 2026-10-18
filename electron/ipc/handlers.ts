@@ -2,13 +2,14 @@ import { BrowserWindow } from "electron";
 import { registerAnnouncementHandlers } from "./register/announcements";
 import { registerCapturePickerHandlers } from "./register/capturePicker";
 import { registerAssetHandlers } from "./register/assets";
-import { registerCaptionHandlers } from "./register/captions";
+import { registerMediaPickerHandlers } from "./register/mediaPicker";
 import { registerCloudShareHandlers } from "./register/cloudShare";
 import { registerExportHandlers } from "./register/export";
 import { registerPermissionHandlers } from "./register/permissions";
 import { registerProjectHandlers } from "./register/project";
 import { registerRecordingHandlers } from "./register/recording";
 import { registerSettingsHandlers } from "./register/settings";
+import { registerSykaTransferHandlers } from "./register/sykaTransfer";
 import { registerSourceHandlers } from "./register/sources";
 import {
 	selectedSource,
@@ -66,12 +67,13 @@ export function registerIpcHandlers(
 		getSourceSelectorWindow,
 	});
 	registerCapturePickerHandlers({ pickSourceList });
+	registerSykaTransferHandlers();
 	registerRecordingHandlers(onRecordingStateChange);
 	registerPermissionHandlers();
 	registerAnnouncementHandlers();
 	registerAssetHandlers();
 	registerExportHandlers();
-	registerCaptionHandlers();
+	registerMediaPickerHandlers();
 	registerCloudShareHandlers();
 	registerProjectHandlers();
 	registerSettingsHandlers();

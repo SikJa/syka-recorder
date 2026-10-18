@@ -316,6 +316,8 @@ export default function VideoEditor() {
 	const { effectiveSpeedRegions, effectiveZoomRegions } = projection;
 
 	const exportController = useEditorExportController({
+		projectData: { version: 2, projectId: project.lastSavedSnapshot?.projectId, videoPath: projectController.snapshot.currentSourcePath ?? "", editor: projectController.snapshot.currentPersistedEditorState },
+		projectName: projectController.snapshot.projectDisplayName,
 		t,
 		videoPath,
 		videoSourcePath,

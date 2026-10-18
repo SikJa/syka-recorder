@@ -1,8 +1,10 @@
 import path from "node:path";
 import { app } from "electron";
 
-if (process.env["VITE_DEV_SERVER_URL"]) {
-	const devUserDataPath = path.join(app.getPath("appData"), "Recordly-dev");
+if (process.env.SYKA_RECORDER_USER_DATA || process.env["VITE_DEV_SERVER_URL"]) {
+	const devUserDataPath = process.env.SYKA_RECORDER_USER_DATA
+		? path.resolve(process.env.SYKA_RECORDER_USER_DATA)
+		: path.join(app.getPath("appData"), "Syka Recorder-dev");
 	app.setPath("userData", devUserDataPath);
 	app.setPath("sessionData", path.join(devUserDataPath, "session"));
 }

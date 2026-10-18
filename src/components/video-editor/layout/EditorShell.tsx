@@ -2,6 +2,8 @@ import { OnboardingController } from "@/components/auth/OnboardingController";
 import { AccountProfileContext } from "@/components/ui/account-avatar";
 import { DashboardSettingsContext } from "../dashboard/DashboardSettings";
 import { RecordlySignInDialog, type SignInReason } from "@/components/auth/RecordlySignInDialog";
+import { LocalProfileDialog } from "@/components/auth/LocalProfileDialog";
+import { useLocalProfile } from "@/lib/localProfile";
 import { useRecordlyAuth } from "@/components/auth/useRecordlyAuth";
 import { useVideoSourceRecovery } from "../hooks/useVideoSourceRecovery";
 import { useRecordingLibrary } from "../library/useRecordingLibrary";
@@ -64,18 +66,41 @@ export function EditorShell(props: Props) {
 	const [signInReason, setSignInReason] = useState<SignInReason>("account");
 	const [shareRequestNonce, setShareRequestNonce] = useState(0);
 	const auth = useRecordlyAuth();
-	const requestSignIn = (reason: SignInReason) => {
-		if (reason === "share" && auth.user) {
-			setShareRequestNonce((value) => value + 1);
-			return;
-		}
-		setSignInReason(reason);
-		setSignInOpen(true);
-	};
+	const localProfile = useLocalProfile();
+	const requestSignIn = useCallback(
+		(reason: SignInReason) => {
+			if (reason === "share" && auth.user) {
+				setShareRequestNonce((value) => value + 1);
+				return;
+			}
+			setSignInReason(reason);
+			setSignInOpen(true);
+		},
+		[auth.user],
+	);
+	const openLocalProfile = useCallback(() => requestSignIn("account"), [requestSignIn]);
 	const handleAuthenticated = useCallback(() => {
 		setSignInOpen(false);
 		if (signInReason === "share") setShareRequestNonce((value) => value + 1);
 	}, [signInReason]);
+	const accountDialog =
+		signInReason === "account" || !auth.configured ? (
+			<LocalProfileDialog
+				open={signInOpen}
+				onOpenChange={setSignInOpen}
+				share={signInReason === "share"}
+			/>
+		) : (
+			<RecordlySignInDialog
+				open={signInOpen}
+				onOpenChange={setSignInOpen}
+				reason={signInReason}
+				user={auth.user}
+				configured={auth.configured}
+				callbackError={auth.callbackError}
+				onAuthenticated={handleAuthenticated}
+			/>
+		);
 	const {
 		t,
 		project,
@@ -196,7 +221,7 @@ export function EditorShell(props: Props) {
 						if (!auth.user) requestSignIn("share");
 						else setShareRequestNonce((value) => value + 1);
 					}}
-					accountLabel={auth.user?.email}
+					accountLabel={localProfile.name}
 					authToken={auth.accessToken}
 					handleImportMediaOrProject={openActions.handleImportMediaOrProject}
 					handleOpenProjectFromLibrary={openActions.handleOpenProjectFromLibrary}
@@ -210,15 +235,7 @@ export function EditorShell(props: Props) {
 		return (
 			<>
 				{getStartupView() === "home" ? <HomeLoadingSkeleton /> : <EditorLoadingSkeleton />}
-				<RecordlySignInDialog
-					open={signInOpen}
-					onOpenChange={setSignInOpen}
-					reason={signInReason}
-					user={auth.user}
-					configured={auth.configured}
-					callbackError={auth.callbackError}
-					onAuthenticated={handleAuthenticated}
-				/>
+				{accountDialog}
 				{editorDialogs}
 				{onboarding}
 				<Toaster className="pointer-events-auto" />
@@ -241,15 +258,7 @@ export function EditorShell(props: Props) {
 						Open Projects
 					</Button>
 				</div>
-				<RecordlySignInDialog
-					open={signInOpen}
-					onOpenChange={setSignInOpen}
-					reason={signInReason}
-					user={auth.user}
-					configured={auth.configured}
-					callbackError={auth.callbackError}
-					onAuthenticated={handleAuthenticated}
-				/>
+				{accountDialog}
 				{editorDialogs}
 				{onboarding}
 				<Toaster className="pointer-events-auto" />
@@ -259,6 +268,7 @@ export function EditorShell(props: Props) {
 	return (
 		<div className="flex h-screen flex-col overflow-hidden bg-editor-bg text-foreground selection:bg-accent/20">
 			<EditorHeader
+				sykaTransfer={exportController.sykaTransfer}
 				clipsOpen={library.open}
 				onToggleClips={() => library.setOpen((open) => !open)}
 				t={t}
@@ -347,7 +357,7 @@ export function EditorShell(props: Props) {
 				<div className="relative z-10 flex min-h-0 flex-1 pt-3">
 					<EditorSidebar
 						accountUser={auth.user}
-						onAccountClick={() => requestSignIn("account")}
+						onAccountClick={openLocalProfile}
 						panelContent={
 							library.open ? <RecordingLibraryPanel library={library} /> : undefined
 						}
@@ -449,15 +459,7 @@ export function EditorShell(props: Props) {
 					</div>
 				</div>
 			)}
-			<RecordlySignInDialog
-				open={signInOpen}
-				onOpenChange={setSignInOpen}
-				reason={signInReason}
-				user={auth.user}
-				configured={auth.configured}
-				callbackError={auth.callbackError}
-				onAuthenticated={handleAuthenticated}
-			/>
+			{accountDialog}
 			{editorDialogs}
 			{onboarding}
 			<CropEditorDialog

@@ -1,7 +1,8 @@
 {
 	"app": {
-		"name": "Recordly",
-		"editorTitle": "Recordly 編輯器",
+		"name": "Syka Recorder",
+		"editorTitle": "Syka Recorder 編輯器",
+		"basedOn": "Based on Recordly by webadderall (AGPL-3.0)",
 		"subtitle": "螢幕錄製與編輯",
 		"language": "語言",
 		"manageRecordings": "打開錄製影像文件夾"

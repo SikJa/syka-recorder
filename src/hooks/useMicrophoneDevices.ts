@@ -38,7 +38,10 @@ export function useMicrophoneDevices(enabled: boolean = true, preferredDeviceId?
 					}));
 
 				const needsLabelPermission =
-					audioInputs.length > 0 && audioInputs.every((device) => !device.label.trim());
+					audioInputs.length === 0 ||
+					allDevices
+						.filter((device) => device.kind === "audioinput")
+						.every((device) => !device.label.trim());
 
 				if (needsLabelPermission && !hasRequestedMicrophoneLabels) {
 					hasRequestedMicrophoneLabels = true;

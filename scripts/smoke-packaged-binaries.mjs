@@ -109,6 +109,7 @@ function assertPackagedAppExecutable(unpackedRoot) {
 	const executableCandidates =
 		process.platform === "win32"
 			? [
+					path.join(appDir, "SykaRecorder.exe"),
 					path.join(appDir, `${productName}.exe`),
 					path.join(appDir, `${packageName}.exe`),
 					path.join(appDir, "Recordly.exe"),
@@ -172,8 +173,6 @@ function getExpectedNativeHelperFiles(archTag) {
 				executable: true,
 			},
 			{ name: "helpers-manifest.json", label: "Windows helper manifest" },
-			{ name: "whisper-cli.exe", label: "Whisper CLI runtime", executable: true },
-			{ name: "whisper-runtime.json", label: "Whisper runtime manifest" },
 		];
 		if (archTag === "win32-x64") {
 			helpers.push({
@@ -199,16 +198,11 @@ function getExpectedNativeHelperFiles(archTag) {
 				label: "Native cursor monitor helper",
 				executable: true,
 			},
-			{ name: "whisper-cli", label: "Whisper CLI runtime", executable: true },
-			{ name: "whisper-runtime.json", label: "Whisper runtime manifest" },
 		];
 	}
 
 	if (archTag.startsWith("linux-")) {
-		return [
-			{ name: "whisper-cli", label: "Whisper CLI runtime", executable: true },
-			{ name: "whisper-runtime.json", label: "Whisper runtime manifest" },
-		];
+		return [];
 	}
 
 	return [];
@@ -246,7 +240,7 @@ function verifyNativeHelpers(unpackedRoot) {
 		}
 
 		const expectedFiles = getExpectedNativeHelperFiles(archTag);
-		if (expectedFiles.length === 0) {
+		if (expectedFiles.length === 0 && !archTag.startsWith("linux-")) {
 			fail(`no packaged helper expectations are defined for ${archTag}`);
 		}
 

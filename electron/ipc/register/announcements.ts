@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 
-const DEFAULT_ANNOUNCEMENT_FEED_URL =
-	"https://raw.githubusercontent.com/webadderallorg/Recordly/main/announcements.json";
+// Upstream Recordly news does not apply to Syka Recorder; only an explicitly configured feed is read.
+const DEFAULT_ANNOUNCEMENT_FEED_URL = "";
 const ANNOUNCEMENT_FETCH_TIMEOUT_MS = 5_000;
 const ANNOUNCEMENT_CACHE_TTL_MS = 6 * 60 * 60 * 1_000;
 const MAX_ANNOUNCEMENT_FEED_BYTES = 1_000_000;
@@ -18,6 +18,9 @@ function getAnnouncementFeedUrl(): string | null {
 	}
 
 	const candidate = configuredUrl || DEFAULT_ANNOUNCEMENT_FEED_URL;
+	if (!candidate) {
+		return null;
+	}
 	try {
 		const parsed = new URL(candidate);
 		return parsed.protocol === "https:" && !parsed.username && !parsed.password

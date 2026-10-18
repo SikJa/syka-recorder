@@ -1,25 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { cursorSetAssets, getCursorStyleSizeMultiplier } from "./uploadedCursorAssets";
 
-describe("Windows system cursor assets", () => {
-	it("uses the native 32px cursor hotspots", () => {
-		expect(cursorSetAssets.windows11.arrow.fallbackAnchor).toEqual({ x: 0, y: 0 });
-		expect(cursorSetAssets.windows11.pointer.fallbackAnchor).toEqual({ x: 6 / 32, y: 0 });
-		expect(cursorSetAssets.windows11["resize-ew"].fallbackAnchor).toEqual({
-			x: 11 / 32,
-			y: 4 / 32,
-		});
-		expect(cursorSetAssets.windows11["resize-ns"].fallbackAnchor).toEqual({
-			x: 4 / 32,
-			y: 11 / 32,
-		});
-		expect(cursorSetAssets.windows11["not-allowed"].fallbackAnchor).toEqual({
-			x: 8 / 32,
-			y: 8 / 32,
-		});
+describe("bundled cursor assets", () => {
+	it("renders saved macOS, Tahoe and Windows 11 styles with Recordly's own minimal arrow", () => {
+		const arrow = cursorSetAssets.tahoe.arrow;
+		expect(arrow.url).toMatch(/minimal-cursor/);
+		for (const set of [
+			cursorSetAssets.macos,
+			cursorSetAssets.tahoe,
+			cursorSetAssets.windows11,
+		]) {
+			for (const asset of Object.values(set)) expect(asset).toBe(arrow);
+		}
+		expect(arrow.fallbackAnchor.x).toBeCloseTo(40 / 396, 10);
+		expect(arrow.fallbackAnchor.y).toBeCloseTo(22 / 433, 10);
 	});
 
-	it("normalizes the Windows cursor set from the measured arrow pixel height", () => {
-		expect(getCursorStyleSizeMultiplier("windows11")).toBeCloseTo(32 / 19.0625, 8);
+	it("keeps every legacy style at its natural size", () => {
+		for (const style of ["macos", "tahoe", "tahoe-inverted", "windows11"]) {
+			expect(getCursorStyleSizeMultiplier(style)).toBe(1);
+		}
 	});
 });

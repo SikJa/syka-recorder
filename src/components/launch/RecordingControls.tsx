@@ -10,8 +10,10 @@ import {
 import { useScopedT } from "@/contexts/I18nContext";
 import { Button, Separator, Tooltip } from "@heroui/react";
 import styles from "./LaunchWindow.module.css";
+import type { ReactNode } from 'react';
 
 interface RecordingControlsProps {
+  drawingButton?: ReactNode;
 	onHome: () => void;
 	paused: boolean;
 	microphoneEnabled: boolean;
@@ -23,6 +25,7 @@ interface RecordingControlsProps {
 	formatTime: (seconds: number) => string;
 }
 export function RecordingControls({
+  drawingButton,
 	onHome,
 	paused,
 	microphoneEnabled,
@@ -34,9 +37,9 @@ export function RecordingControls({
 	formatTime,
 }: RecordingControlsProps) {
 	const t = useScopedT("launch");
-	const actionClass = `size-9 min-w-9 rounded-full ${styles.electronNoDrag}`;
+	const actionClass = `size-8 min-w-8 rounded-full ${styles.electronNoDrag}`;
 	return (
-		<div role="group" aria-label="Recording controls" className="flex items-center gap-2">
+		<div role="group" aria-label="Recording controls" className="flex items-center gap-1">
 			<Button
 				isIconOnly
 				variant="ghost"
@@ -52,7 +55,7 @@ export function RecordingControls({
 				aria-label={paused ? t("recording.paused") : t("recording.rec")}
 			>
 				<span
-					className={`size-2 rounded-full ${paused ? "bg-warning" : `bg-danger ${styles.recDotBlink}`}`}
+					className={`size-2 rounded-[2px] ${paused ? "bg-warning" : `bg-danger ${styles.recDotBlink}`}`}
 				/>
 				<span className="min-w-14 text-sm font-medium tabular-nums text-foreground">
 					{formatTime(elapsed)}
@@ -77,6 +80,7 @@ export function RecordingControls({
 				</Button>
 				<Tooltip.Content>{t("recording.micToggleDisabledTip")}</Tooltip.Content>
 			</Tooltip>
+			{drawingButton}
 			<Separator orientation="vertical" className="mx-1 h-5 self-center" />
 			<Tooltip>
 				<Button
@@ -100,7 +104,7 @@ export function RecordingControls({
 				<Button
 					isIconOnly
 					variant="danger"
-					className={actionClass}
+					className={`size-8 min-w-8 rounded-lg ${styles.electronNoDrag}`}
 					onPress={onStopRecording}
 					aria-label={t("recording.stop")}
 				>

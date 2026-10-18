@@ -20,7 +20,7 @@ export type WebcamPreviewResizeHandle = "nw" | "ne" | "sw" | "se";
 
 export const WEBCAM_PREVIEW_RESIZE_HANDLES: WebcamPreviewResizeHandle[] = ["nw", "ne", "sw", "se"];
 export const WEBCAM_PREVIEW_SIZE_STORAGE_KEY = "recordly.webcam-preview-size";
-export const DEFAULT_WEBCAM_PREVIEW_SIZE: WebcamPreviewSize = { width: 288, height: 288 };
+export const DEFAULT_WEBCAM_PREVIEW_SIZE: WebcamPreviewSize = { width: 224, height: 224 };
 const WEBCAM_PREVIEW_MIN_SIZE = 120;
 const WEBCAM_PREVIEW_MAX_SIZE = 480;
 

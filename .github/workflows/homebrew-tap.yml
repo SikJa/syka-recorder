@@ -18,6 +18,7 @@ permissions:
 
 jobs:
   update-tap:
+    if: github.repository == 'webadderallorg/Recordly'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

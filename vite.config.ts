@@ -56,6 +56,10 @@ function electronMainCjsGuardPlugin(): Plugin {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+	// Recording overlays use loadFile in production. Root-relative assets resolve
+	// to the drive root there, leaving a transparent window with no renderer.
+	// Relative URLs also work for the editor's local HTTP server.
+	base: "./",
 	plugins: [
 		react(),
 		...(mode === "ui" || process.env.RECORDLY_RENDERER_ONLY === "1"
@@ -92,6 +96,7 @@ export default defineConfig(({ mode }) => ({
 							// Shortcut of `build.rollupOptions.input`.
 							// Preload scripts may contain Web assets, so use the `build.rollupOptions.input` instead `build.lib.entry`.
 							input: path.join(__dirname, "electron/preload.ts"),
+							vite: { build: { rollupOptions: { output: { format: "cjs", entryFileNames: "preload.cjs" } } } },
 						},
 						// Polyfill the Electron and Node.js API for the renderer process.
 						// If you want to use Node.js in the renderer process, enable `nodeIntegration` in the main process.
@@ -109,6 +114,7 @@ export default defineConfig(({ mode }) => ({
 			"@": path.resolve(__dirname, "src"),
 		},
 	},
+	worker: { format: "es" },
 	optimizeDeps: {
 		entries: ["index.html"],
 		// React Aria imports this CommonJS shim through its ESM collection modules.

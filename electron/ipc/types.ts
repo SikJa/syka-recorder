@@ -73,11 +73,29 @@ export type NativeCaptureDiagnostics = {
 	error?: string;
 };
 
+export type ScreenRect = {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+};
+
+/** The floating webcam preview at the end of a recording, as fractions of the recorded region. */
+export type RecordingWebcamLayout = {
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+	/** Recorded region width / height, to convert fractions into the editor's layout. */
+	regionAspect: number;
+};
+
 export type RecordingSessionData = {
 	videoPath: string;
 	webcamPath?: string | null;
 	timeOffsetMs?: number;
 	hideOverlayCursorByDefault?: boolean;
+	webcamLayout?: RecordingWebcamLayout | null;
 };
 
 export type PauseSegment = {
@@ -90,6 +108,7 @@ export type RecordingSessionManifest = {
 	videoFileName: string;
 	webcamFileName?: string | null;
 	timeOffsetMs?: number;
+	webcamLayout?: RecordingWebcamLayout | null;
 };
 
 export type ProjectLibraryEntry = {

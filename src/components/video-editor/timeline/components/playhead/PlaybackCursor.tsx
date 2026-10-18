@@ -120,7 +120,7 @@ export default function PlaybackCursor({
 						event.stopPropagation();
 						setIsDragging(true);
 					}}
-					className="absolute top-0 h-4 rounded-full bg-red-500 text-white cursor-ew-resize pointer-events-auto overflow-hidden transition-[width,transform] duration-150"
+					className="absolute top-0 h-4 rounded-lg bg-red-500 text-white cursor-ew-resize pointer-events-auto overflow-hidden transition-[width,transform] duration-150 motion-reduce:transition-none"
 					style={{
 						width: expanded ? 68 : 16,
 						left: "50%",

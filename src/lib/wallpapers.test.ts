@@ -1,94 +1,50 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
 	BUILT_IN_WALLPAPERS,
 	DEFAULT_WALLPAPER_PATH,
-	DEFAULT_WALLPAPER_RELATIVE_PATH,
 	getAvailableWallpapers,
+	isRemovedBundledWallpaper,
+	isVideoWallpaperSource,
+	normalizeWallpaperValue,
 	resolveAvailableWallpaperPath,
 } from "./wallpapers";
 
 describe("wallpapers", () => {
-	beforeEach(() => {
-		vi.unstubAllGlobals();
+	it("ships no bundled wallpaper images and defaults to a flat color", async () => {
+		expect(BUILT_IN_WALLPAPERS).toEqual([]);
+		expect(DEFAULT_WALLPAPER_PATH).toMatch(/^#[0-9a-f]{6}$/i);
+		await expect(getAvailableWallpapers()).resolves.toEqual([]);
 	});
 
-	afterEach(() => {
-		vi.unstubAllGlobals();
-	});
-
-	it("keeps the curated wallpaper list and default path aligned", () => {
-		expect(DEFAULT_WALLPAPER_PATH).toBe("/wallpapers/tahoe-light.jpg");
-		expect(DEFAULT_WALLPAPER_RELATIVE_PATH).toBe("wallpapers/tahoe-light.jpg");
-		expect(BUILT_IN_WALLPAPERS.at(0)?.publicPath).toBe(DEFAULT_WALLPAPER_PATH);
-		expect(BUILT_IN_WALLPAPERS.at(1)?.publicPath).toBe("/wallpapers/tahoe-dark.jpg");
-		expect(BUILT_IN_WALLPAPERS).toHaveLength(25);
-	});
-
-	it("preserves the curated order when asset discovery returns extra files", async () => {
-		vi.stubGlobal("window", {
-			electronAPI: {
-				listAssetDirectory: vi.fn(async () => ({
-					success: true,
-					files: [
-						"wallpaper1.jpg",
-						"energy-17.jpg",
-						"midnight-8.jpg",
-						"wallpaper4.jpg",
-						"wispysky.mp4",
-						"cityscape.jpg",
-						"ipad-17-light.jpg",
-					],
-				})),
-			},
-		});
-
-		await expect(getAvailableWallpapers()).resolves.toEqual([
-			BUILT_IN_WALLPAPERS[2],
-			BUILT_IN_WALLPAPERS[4],
-			BUILT_IN_WALLPAPERS[15],
-			BUILT_IN_WALLPAPERS[16],
-			BUILT_IN_WALLPAPERS[23],
-			BUILT_IN_WALLPAPERS[24],
-		]);
-	});
-
-	it("falls back to the default wallpaper when a bundled wallpaper is missing", async () => {
-		vi.stubGlobal("window", {
-			electronAPI: {
-				listAssetDirectory: vi.fn().mockResolvedValue({
-					success: true,
-					files: ["wallpaper2.jpg"],
-				}),
-			},
-		});
-
-		await expect(resolveAvailableWallpaperPath("/wallpapers/midnight-8.jpg")).resolves.toBe(
+	it("maps wallpapers removed from the bundle to the default background", async () => {
+		expect(isRemovedBundledWallpaper("/wallpapers/tahoe-light.jpg")).toBe(true);
+		expect(normalizeWallpaperValue("/wallpapers/tahoe-light.jpg")).toBe(DEFAULT_WALLPAPER_PATH);
+		await expect(resolveAvailableWallpaperPath("/wallpapers/wispysky.mp4")).resolves.toBe(
 			DEFAULT_WALLPAPER_PATH,
 		);
-		await expect(resolveAvailableWallpaperPath("/wallpapers/wallpaper2.jpg")).resolves.toBe(
-			"/wallpapers/wallpaper2.jpg",
-		);
 	});
 
-	it("strips query strings and fragments before checking bundled wallpaper files", async () => {
-		vi.stubGlobal("window", {
-			electronAPI: {
-				listAssetDirectory: vi.fn().mockResolvedValue({
-					success: true,
-					files: ["wispysky.mp4"],
-				}),
-			},
-		});
-
-		await expect(resolveAvailableWallpaperPath("/wallpapers/wispysky.mp4#t=0.1")).resolves.toBe(
-			"/wallpapers/wispysky.mp4#t=0.1",
-		);
+	it("keeps colors, gradients, uploads and local files the user chose", async () => {
+		for (const value of [
+			"#1d4ed8",
+			"linear-gradient(90deg, #000 0%, #fff 100%)",
+			"data:image/png;base64,AAAA",
+			"C:\\Users\\me\\Pictures\\bg.png",
+			"/Users/me/Pictures/bg.png",
+		]) {
+			expect(normalizeWallpaperValue(value)).toBe(value);
+			await expect(resolveAvailableWallpaperPath(value)).resolves.toBe(value);
+		}
 	});
 
-	it("preserves non-bundled wallpaper values", async () => {
-		await expect(resolveAvailableWallpaperPath("#123456")).resolves.toBe("#123456");
-		await expect(resolveAvailableWallpaperPath("data:image/png;base64,abc")).resolves.toBe(
-			"data:image/png;base64,abc",
-		);
+	it("falls back to the default for missing or invalid values", () => {
+		expect(normalizeWallpaperValue(undefined)).toBe(DEFAULT_WALLPAPER_PATH);
+		expect(normalizeWallpaperValue("")).toBe(DEFAULT_WALLPAPER_PATH);
+		expect(normalizeWallpaperValue(42)).toBe(DEFAULT_WALLPAPER_PATH);
+	});
+
+	it("recognizes video backgrounds", () => {
+		expect(isVideoWallpaperSource("C:\\clips\\loop.mp4")).toBe(true);
+		expect(isVideoWallpaperSource("C:\\images\\bg.png?v=1")).toBe(false);
 	});
 });

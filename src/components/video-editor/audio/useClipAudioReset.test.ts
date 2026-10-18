@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SourceAudioTrackSettings } from "./audioTypes";
 import { useClipAudioReset } from "./useClipAudioReset";
+
+// The hook memoizes its callback; the harness calls it directly, outside React.
+vi.mock("react", async (importOriginal) => ({
+	...(await importOriginal<typeof import("react")>()),
+	useCallback: <T>(callback: T) => callback,
+}));
 
 function harness(selectedClipId: string | null, defaults: SourceAudioTrackSettings = {}) {
 	let saved = {

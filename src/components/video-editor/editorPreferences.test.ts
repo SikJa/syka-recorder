@@ -110,8 +110,8 @@ describe("editorPreferences", () => {
 		expect(DEFAULT_EDITOR_PREFERENCES.exportQuality).toBe("source");
 	});
 
-	it("defaults cursor preferences to Tahoe at 2.5x with gentler sway", () => {
-		expect(DEFAULT_EDITOR_PREFERENCES.cursorStyle).toBe("tahoe");
+	it("defaults cursor preferences to the minimal arrow at 2.5x with gentler sway", () => {
+		expect(DEFAULT_EDITOR_PREFERENCES.cursorStyle).toBe("figma");
 		expect(DEFAULT_EDITOR_PREFERENCES.cursorSize).toBe(2.5);
 		expect(DEFAULT_EDITOR_PREFERENCES.cursorSway).toBe(0.4);
 	});
@@ -220,12 +220,25 @@ describe("editorPreferences", () => {
 			"localStorage",
 			createStorageMock({
 				[EDITOR_PREFERENCES_STORAGE_KEY]: JSON.stringify({
+					wallpaper: "#1d4ed8",
+				}),
+			}),
+		);
+
+		expect(loadEditorPreferences().wallpaper).toBe("#1d4ed8");
+	});
+
+	it("replaces a stored wallpaper that is no longer bundled with the default background", () => {
+		vi.stubGlobal(
+			"localStorage",
+			createStorageMock({
+				[EDITOR_PREFERENCES_STORAGE_KEY]: JSON.stringify({
 					wallpaper: "/wallpapers/wallpaper1.jpg",
 				}),
 			}),
 		);
 
-		expect(loadEditorPreferences().wallpaper).toBe("/wallpapers/wallpaper1.jpg");
+		expect(loadEditorPreferences().wallpaper).toBe(DEFAULT_EDITOR_PREFERENCES.wallpaper);
 	});
 
 	it("preserves the last valid custom aspect inputs while typing", () => {

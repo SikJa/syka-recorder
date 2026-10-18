@@ -218,10 +218,22 @@ interface RendererExportHardwareInfo {
 
 interface Window {
 	electronAPI: {
+		beginSykaTransfer: () => Promise<{ operationId?: string; canceled?: boolean }>;
+		openSykaTransferInStudio: (manifestPath: string) => Promise<import("../src/lib/sykaExport/contract").TransferResult>;
+		saveSykaTransfer: (request: import("../src/lib/sykaExport/contract").SaveTransferRequest) => Promise<import("../src/lib/sykaExport/contract").TransferResult>;
+		cancelSykaTransfer: (operationId: string) => Promise<void>;
 		hudOverlaySetIgnoreMouse: (ignore: boolean) => void;
+		hudOverlaySetInputRegions: (regions: Electron.Rectangle[]) => void;
 		hudOverlaySetSourceSelectionActive: (active: boolean) => void;
 		hudOverlayDrag: (phase: "start" | "move" | "end", screenX: number, screenY: number) => void;
 		hudOverlayHide: () => void;
+    onRecordingControlsRestore: (callback: () => void) => () => void;
+    recordingInkStart: () => Promise<{success:boolean;error?:string}>;
+    recordingInkScene: (scene: import('../src/components/launch/drawing/contract').InkUpdate) => void;
+    recordingInkSample: (rect: import('../src/components/launch/drawing/contract').InkRect) => Promise<{success:boolean;dataUrl?:string;error?:string}>;
+    recordingInkReady: () => void;
+    onRecordingInkScene: (callback: (scene: import('../src/components/launch/drawing/contract').InkUpdate) => void) => () => void;
+    onRecordingInkError: (callback: (message:string) => void) => () => void;
 		hudOverlayClose: () => void;
 		getEditorMode: () => Promise<boolean>;
 		onEditorModeChanged: (callback: (inEditor: boolean) => void) => () => void;
@@ -760,17 +772,13 @@ interface Window {
 				webcamPath?: string | null;
 				timeOffsetMs?: number;
 				hideOverlayCursorByDefault?: boolean;
+				webcamPreviewRect?: { x: number; y: number; width: number; height: number } | null;
 			},
 			options?: { preserveProjectPath?: boolean },
 		) => Promise<{ success: boolean }>;
 		getCurrentRecordingSession: () => Promise<{
 			success: boolean;
-			session?: {
-				videoPath: string;
-				webcamPath?: string | null;
-				timeOffsetMs?: number;
-				hideOverlayCursorByDefault?: boolean;
-			};
+			session?: RendererRecordingSessionData;
 		}>;
 		getCurrentVideoPath: () => Promise<{ success: boolean; path?: string }>;
 		clearCurrentVideoPath: () => Promise<{ success: boolean }>;

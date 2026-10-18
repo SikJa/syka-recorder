@@ -1,13 +1,12 @@
 import type { User } from "@supabase/supabase-js";
-import { AccountSettings } from "@/components/auth/AccountSettings";
+import { LocalProfileForm } from "@/components/auth/LocalProfileDialog";
 import { RecordingPermissionsSettings } from "@/components/auth/RecordingPermissionsSettings";
 import { SettingsSections, SettingsCategory } from "./SettingsSections";
 import { Card, RadioGroup, Radio, Label, Description } from "@heroui/react";
-import { ProgressBar } from "@heroui/react";
 import { ColorControl, ColorPalette } from "@/components/ui/color-picker";
 import { Palette, Trash as Trash2, UploadSimple as Upload } from "@/components/ui/icons";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/components/ui/toast";
 import minimalCursorUrl from "@/assets/cursors/custom/minimal-cursor.svg";
 import { Button } from "@/components/ui/button";
@@ -26,6 +25,7 @@ import { cn } from "@/lib/utils";
 import type { BuiltInWallpaper } from "@/lib/wallpapers";
 import {
 	BUILT_IN_WALLPAPERS,
+	DEFAULT_WALLPAPER_PATH,
 	getAvailableWallpapers,
 	isVideoWallpaperSource,
 } from "@/lib/wallpapers";
@@ -50,7 +50,6 @@ import { SettingsRow } from "./SettingsRow";
 import type {
 	AnnotationRegion,
 	AnnotationType,
-	AutoCaptionAnimation,
 	AutoCaptionSettings,
 	CaptionCue,
 	CropRegion,
@@ -67,7 +66,6 @@ import type {
 } from "./types";
 import {
 	ADVANCED_VERTICAL_PADDING_MAX,
-	DEFAULT_AUTO_CAPTION_SETTINGS,
 	DEFAULT_CROP_REGION,
 	DEFAULT_CURSOR_CLICK_BOUNCE_DURATION,
 	DEFAULT_CURSOR_CLICK_EFFECT,
@@ -92,10 +90,6 @@ import {
 import { fromCursorSwaySliderValue, toCursorSwaySliderValue } from "./videoPlayback/cursorSway";
 import { isZeroPadding } from "./videoPlayback/layoutUtils";
 import { getPreviewPlaybackRateRange } from "./videoPlayback/playbackRate";
-import {
-	cursorSetAssets,
-	getCursorStyleSizeMultiplier,
-} from "./videoPlayback/uploadedCursorAssets";
 import { WebcamCropControl } from "./WebcamCropControl";
 import {
 	getCropMatchedWebcamHeightPercent,
@@ -104,8 +98,6 @@ import {
 	resolveWebcamCorner,
 } from "./webcamOverlay";
 
-const tahoeCursorUrl = cursorSetAssets.tahoe.arrow.url;
-const BUILTIN_CURSOR_PREVIEW_SIZE = 28;
 const BUILTIN_CURSOR_PREVIEW_FRAME_SIZE = 48;
 
 const GRADIENTS = [
@@ -133,13 +125,6 @@ const GRADIENTS = [
 	"linear-gradient(to right, #f78ca0 0%, #f9748f 19%, #fd868c 60%, #fe9a8b 100%)",
 	"linear-gradient(to top, #48c6ef 0%, #6f86d6 100%)",
 	"linear-gradient(to right, #0acffe 0%, #495aff 100%)",
-];
-
-const CAPTION_ANIMATION_OPTIONS: Array<{ value: AutoCaptionAnimation; label: string }> = [
-	{ value: "none", label: "Off" },
-	{ value: "fade", label: "Fade" },
-	{ value: "rise", label: "Rise" },
-	{ value: "pop", label: "Pop" },
 ];
 
 const CLICK_EFFECT_COLOR_OPTIONS = [
@@ -597,26 +582,9 @@ type WallpaperTile = {
 };
 
 const BUILTIN_CURSOR_STYLE_OPTIONS: CursorStyleOption[] = [
-	{ value: "macos", label: "macOS" },
-	{ value: "tahoe", label: "Golden Gate" },
-	{ value: "tahoe-inverted", label: "Golden Gate Inverted" },
-	{ value: "windows11", label: "Windows 11" },
-	{ value: "dot", label: "Dot" },
 	{ value: "figma", label: "Minimal" },
+	{ value: "dot", label: "Dot" },
 ];
-
-const CAPTION_LANGUAGE_OPTIONS = [
-	{ value: "auto", label: "Auto Detect" },
-	{ value: "en", label: "English" },
-	{ value: "es", label: "Spanish" },
-	{ value: "fr", label: "French" },
-	{ value: "de", label: "German" },
-	{ value: "it", label: "Italian" },
-	{ value: "pt", label: "Portuguese" },
-	{ value: "zh", label: "Chinese (Simplified)" },
-	{ value: "ja", label: "Japanese" },
-	{ value: "ko", label: "Korean" },
-] as const;
 
 const APP_LANGUAGE_LABELS: Record<AppLocale, string> = {
 	en: "English",
@@ -747,27 +715,6 @@ async function createTrimmedSvgPreview(
 	return trimCanvasToAlpha(sourceCanvas).dataUrl;
 }
 
-async function createInvertedPreview(url: string) {
-	const image = await loadPreviewImage(url);
-	const canvas = document.createElement("canvas");
-	canvas.width = image.naturalWidth;
-	canvas.height = image.naturalHeight;
-	const ctx = canvas.getContext("2d")!;
-	ctx.drawImage(image, 0, 0);
-	const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-	const { data } = imageData;
-	for (let index = 0; index < data.length; index += 4) {
-		if (data[index + 3] === 0) {
-			continue;
-		}
-		data[index] = 255 - data[index];
-		data[index + 1] = 255 - data[index + 1];
-		data[index + 2] = 255 - data[index + 2];
-	}
-	ctx.putImageData(imageData, 0, 0);
-	return canvas.toDataURL("image/png");
-}
-
 function CursorStylePreview({
 	style,
 	previewUrls,
@@ -780,48 +727,7 @@ function CursorStylePreview({
 	previewSize?: number;
 }) {
 	const previewSrc =
-		style === "macos"
-			? (previewUrls.macos ?? tahoeCursorUrl)
-			: style === "tahoe"
-				? (previewUrls.tahoe ?? tahoeCursorUrl)
-				: style === "windows11"
-					? (previewUrls.windows11 ?? tahoeCursorUrl)
-					: style === "figma"
-						? (previewUrls.figma ?? minimalCursorUrl)
-						: style === "tahoe-inverted"
-							? (previewUrls["tahoe-inverted"] ?? tahoeCursorUrl)
-							: previewUrls[style];
-
-	if (
-		style === "macos" ||
-		style === "tahoe" ||
-		style === "tahoe-inverted" ||
-		style === "windows11"
-	) {
-		const resolvedPreviewSize =
-			(previewSize ?? BUILTIN_CURSOR_PREVIEW_SIZE) *
-			(style === "windows11" ? 1 : getCursorStyleSizeMultiplier(style));
-		return (
-			<div
-				className="flex items-center justify-center"
-				style={{
-					width: `${frameSize}px`,
-					height: `${frameSize}px`,
-				}}
-			>
-				<img
-					src={previewSrc ?? tahoeCursorUrl}
-					alt=""
-					className="max-w-none object-contain drop-shadow-[0_8px_12px_rgba(15,23,42,0.18)]"
-					draggable={false}
-					style={{
-						width: `${resolvedPreviewSize}px`,
-						height: `${resolvedPreviewSize}px`,
-					}}
-				/>
-			</div>
-		);
-	}
+		style === "figma" ? (previewUrls.figma ?? minimalCursorUrl) : previewUrls[style];
 
 	if (style === "figma") {
 		const resolvedPreviewSize = previewSize ?? 28;
@@ -869,7 +775,7 @@ function CursorStylePreview({
 			style={{ width: `${frameSize}px`, height: `${frameSize}px` }}
 		>
 			<img
-				src={previewSrc ?? tahoeCursorUrl}
+				src={previewSrc ?? minimalCursorUrl}
 				alt=""
 				className="object-contain"
 				draggable={false}
@@ -879,8 +785,7 @@ function CursorStylePreview({
 	);
 }
 
-export function SettingsPanel({
-	accountUser = null,
+function SettingsPanelContent({
 	onShowOnboarding,
 	advanced = false,
 	panelMode = "editor",
@@ -984,17 +889,6 @@ export function SettingsPanel({
 	onAnnotationBlurColorChange,
 	onAnnotationDelete,
 	autoCaptions = [],
-	autoCaptionSettings = DEFAULT_AUTO_CAPTION_SETTINGS,
-	whisperModelPath,
-	whisperModelDownloadStatus = "idle",
-	whisperModelDownloadProgress = 0,
-	isGeneratingCaptions = false,
-	onAutoCaptionSettingsChange,
-	onPickWhisperModel,
-	onGenerateAutoCaptions,
-	onClearAutoCaptions,
-	onDownloadWhisperSmallModel,
-	onDeleteWhisperSmallModel,
 	captionCurrentTimeMs = 0,
 	selectedCaptionId = null,
 	onBeginCaptionEdit,
@@ -1018,8 +912,6 @@ export function SettingsPanel({
 	const [customImages, setCustomImages] = useState<string[]>(
 		initialEditorPreferences.customWallpapers,
 	);
-	const [experimentalUpdatesEnabled, setExperimentalUpdatesEnabled] = useState(false);
-	const [savingExperimentalUpdates, setSavingExperimentalUpdates] = useState(false);
 	const { openConfig: openShortcutsConfig } = useShortcuts();
 	const [internalActiveEffectSection] = useState<EditorEffectSection>("scene");
 	const activeEffectSection = activeEffectSectionProp ?? internalActiveEffectSection;
@@ -1032,51 +924,6 @@ export function SettingsPanel({
 		() => builtInWallpapers.map((wallpaper) => wallpaper.publicPath),
 		[builtInWallpapers],
 	);
-	const captionCueCount = autoCaptions.length;
-	const updateAutoCaptionSettings = (partial: Partial<AutoCaptionSettings>) => {
-		onAutoCaptionSettingsChange?.({
-			...autoCaptionSettings,
-			...partial,
-		});
-	};
-
-	useEffect(() => {
-		let cancelled = false;
-		void window.electronAPI
-			.getExperimentalUpdatesEnabled()
-			.then((enabled) => {
-				if (!cancelled) setExperimentalUpdatesEnabled(enabled);
-			})
-			.catch((error) => {
-				console.error("Failed to load experimental updates preference:", error);
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, []);
-
-	const updateExperimentalUpdatesPreference = async (enabled: boolean) => {
-		const previousValue = experimentalUpdatesEnabled;
-		setExperimentalUpdatesEnabled(enabled);
-		setSavingExperimentalUpdates(true);
-		try {
-			const result = await window.electronAPI.setExperimentalUpdatesEnabled(enabled);
-			setExperimentalUpdatesEnabled(result.enabled);
-			if (!result.success) {
-				toast.error(
-					result.error ||
-						tSettings("updates.saveFailed", "Failed to change the update channel."),
-				);
-			}
-		} catch (error) {
-			setExperimentalUpdatesEnabled(previousValue);
-			toast.error(
-				`${tSettings("updates.saveFailed", "Failed to change the update channel.")} ${String(error)}`,
-			);
-		} finally {
-			setSavingExperimentalUpdates(false);
-		}
-	};
 
 	useEffect(() => {
 		if (
@@ -1167,32 +1014,14 @@ export function SettingsPanel({
 
 		void (async () => {
 			try {
-				const macosPreview = cursorSetAssets.macos.arrow.url;
-				const tahoePreview = cursorSetAssets.tahoe.arrow.url;
-				const [windows11Preview, minimalPreview] = await Promise.all([
-					createTrimmedSvgPreview(cursorSetAssets.windows11.arrow.url, 512),
-					createTrimmedSvgPreview(minimalCursorUrl, 512),
-				]);
-				const invertedPreview = await createInvertedPreview(tahoePreview);
+				const minimalPreview = await createTrimmedSvgPreview(minimalCursorUrl, 512);
 
 				if (!cancelled) {
-					setBuiltInCursorPreviewUrls({
-						macos: macosPreview,
-						tahoe: tahoePreview,
-						windows11: windows11Preview,
-						figma: minimalPreview,
-						"tahoe-inverted": invertedPreview,
-					});
+					setBuiltInCursorPreviewUrls({ figma: minimalPreview });
 				}
 			} catch {
 				if (!cancelled) {
-					setBuiltInCursorPreviewUrls({
-						macos: tahoeCursorUrl,
-						tahoe: tahoeCursorUrl,
-						windows11: tahoeCursorUrl,
-						figma: minimalCursorUrl,
-						"tahoe-inverted": tahoeCursorUrl,
-					});
+					setBuiltInCursorPreviewUrls({ figma: minimalCursorUrl });
 				}
 			}
 		})();
@@ -1414,8 +1243,7 @@ export function SettingsPanel({
 		onWallpaperChange(
 			(hasPreferredWallpaper ? preferredWallpaper : "") ||
 				builtInWallpaperPaths[0] ||
-				BUILT_IN_WALLPAPERS[0]?.publicPath ||
-				"",
+				DEFAULT_WALLPAPER_PATH,
 		);
 	};
 
@@ -1594,7 +1422,7 @@ export function SettingsPanel({
 		setCustomImages((prev) => prev.filter((img) => img !== imageUrl));
 		// If the removed image was selected, clear selection
 		if (selected === imageUrl) {
-			onWallpaperChange(builtInWallpaperPaths[0] ?? BUILT_IN_WALLPAPERS[0]?.publicPath ?? "");
+			onWallpaperChange(builtInWallpaperPaths[0] ?? DEFAULT_WALLPAPER_PATH);
 		}
 	};
 
@@ -1988,281 +1816,13 @@ export function SettingsPanel({
 		</section>
 	);
 
-	const captionsSectionContent = (
-		<section className="flex flex-col gap-4">
-			<div className="flex items-center justify-between gap-3">
-				<div className="flex items-center gap-3">
-					<SectionLabel>{tSettings("captions.generation", "Generation")}</SectionLabel>
-					<Button
-						className="text-xs text-muted"
-						size="sm"
-						variant="ghost"
-						type="button"
-						onClick={() => onAutoCaptionSettingsChange?.(DEFAULT_AUTO_CAPTION_SETTINGS)}
-					>
-						{t("common.actions.reset", "Reset")}
-					</Button>
-				</div>
-				<div className="flex items-center gap-2 text-xs text-muted-foreground">
-					<span>{tSettings("captions.enabled", "Show")}</span>
-					<Switch
-						aria-label={tSettings("captions.enabled", "Show")}
-						checked={autoCaptionSettings.enabled}
-						onCheckedChange={(enabled) => updateAutoCaptionSettings({ enabled })}
-					/>
-				</div>
-			</div>
-
-			<div className="py-2 space-y-3">
-				{advanced && (
-					<div>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={onPickWhisperModel}
-							className="h-9 w-full px-4 text-sm"
-						>
-							{tSettings("captions.useCustomModel", "Use custom")}
-						</Button>
-					</div>
-				)}
-				<div className="flex items-center justify-between gap-3">
-					<div className="text-sm font-medium text-foreground">
-						{tSettings("captions.language", "Language")}
-					</div>
-					<Select
-						value={autoCaptionSettings.language || "auto"}
-						onValueChange={(value) => updateAutoCaptionSettings({ language: value })}
-					>
-						<SelectTrigger className="h-9 w-[180px] text-sm">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{CAPTION_LANGUAGE_OPTIONS.map((option) => (
-								<SelectItem key={option.value} value={option.value}>
-									{option.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-				<div className="flex items-center justify-between gap-3">
-					<div className="text-sm font-medium text-foreground">
-						{tSettings("captions.animation", "Animation")}
-					</div>
-					<Select
-						value={autoCaptionSettings.animationStyle}
-						onValueChange={(value) =>
-							updateAutoCaptionSettings({
-								animationStyle: value as AutoCaptionAnimation,
-							})
-						}
-					>
-						<SelectTrigger className="h-9 w-[180px] text-sm">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{CAPTION_ANIMATION_OPTIONS.map((option) => (
-								<SelectItem key={option.value} value={option.value}>
-									{option.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					<div className="grid w-full grid-cols-1 gap-2">
-						{whisperModelDownloadStatus === "downloading" ? (
-							<Button type="button" disabled className="h-9 w-full px-4 text-sm">
-								{tSettings("captions.downloading", "Downloading...")}{" "}
-								{Math.round(whisperModelDownloadProgress)}%
-							</Button>
-						) : whisperModelPath ? (
-							<Button
-								type="button"
-								variant="outline"
-								onClick={onDeleteWhisperSmallModel}
-								className="h-9 w-full px-4 text-sm"
-							>
-								{tSettings("captions.deleteModel", "Delete Model")}
-							</Button>
-						) : (
-							<Button
-								type="button"
-								onClick={onDownloadWhisperSmallModel}
-								className="h-9 w-full px-4 text-sm"
-							>
-								{tSettings("captions.downloadModel", "Download Model")}
-							</Button>
-						)}
-						<Button
-							type="button"
-							variant="outline"
-							onClick={onClearAutoCaptions}
-							disabled={captionCueCount === 0}
-							className="h-9 w-full px-4 text-sm"
-						>
-							{tSettings("captions.clearFull", "Clear Captions")}
-						</Button>
-					</div>
-				</div>
-				<div className="flex flex-col gap-4">
-					<Button
-						type="button"
-						onClick={onGenerateAutoCaptions}
-						disabled={isGeneratingCaptions || !whisperModelPath}
-						className="h-9 w-full px-4 text-sm"
-					>
-						{isGeneratingCaptions
-							? tSettings("captions.generating", "Generating...")
-							: captionCueCount > 0
-								? tSettings("captions.regenerateFull", "Regenerate Captions")
-								: tSettings("captions.generateFull", "Generate Captions")}
-					</Button>
-					{isGeneratingCaptions ? (
-						<div className="space-y-1">
-							<div className="text-xs text-muted-foreground">
-								{tSettings(
-									"captions.generatingStatus",
-									"Generating captions. This can take a moment.",
-								)}
-							</div>
-							<ProgressBar aria-label="Downloading caption model" isIndeterminate>
-								<ProgressBar.Track>
-									<ProgressBar.Fill />
-								</ProgressBar.Track>
-							</ProgressBar>
-						</div>
-					) : null}
-				</div>
-				{whisperModelDownloadStatus === "downloading" ? (
-					<div className="h-2 overflow-hidden rounded-full bg-foreground/5">
-						<div
-							className="h-full rounded-full bg-accent transition-all"
-							style={{ width: `${whisperModelDownloadProgress}%` }}
-						/>
-					</div>
-				) : null}
-			</div>
-
-			<div className="flex flex-col gap-3">
-				{advanced && (
-					<div className="flex items-center justify-between gap-3 py-2">
-						<div className="text-xs text-muted-foreground">
-							{tSettings("captions.timelineQuickAdd", "Hover to add on timeline")}
-						</div>
-						<Switch
-							checked={autoCaptionSettings.timelineQuickAdd}
-							onCheckedChange={(timelineQuickAdd) =>
-								updateAutoCaptionSettings({ timelineQuickAdd })
-							}
-							aria-label={tSettings(
-								"captions.timelineQuickAdd",
-								"Hover to add on timeline",
-							)}
-						/>
-					</div>
-				)}
-
-				<div className="mb-1 text-sm font-medium text-foreground">
-					{tSettings("captions.fontSettings", "Font Settings")}
-				</div>
-				<SliderControl
-					label={tSettings("captions.fontSize", "Font size")}
-					value={autoCaptionSettings.fontSize}
-					min={16}
-					max={72}
-					step={1}
-					onChange={(value) => updateAutoCaptionSettings({ fontSize: value })}
-					formatValue={(value) => `${Math.round(value)}px`}
-				/>
-				<div className="flex items-center justify-between py-2">
-					<span className="text-sm font-medium text-foreground">
-						{tSettings("captions.textColor", "Text color")}
-					</span>
-					<ColorControl
-						compact
-						label={tSettings("captions.textColor", "Text color")}
-						value={autoCaptionSettings.textColor}
-						onChange={(color) => updateAutoCaptionSettings({ textColor: color })}
-					/>
-				</div>
-				{advanced && (
-					<SliderControl
-						label={tSettings("captions.rowCount", "Rows")}
-						value={autoCaptionSettings.maxRows}
-						min={1}
-						max={4}
-						step={1}
-						onChange={(value) =>
-							updateAutoCaptionSettings({ maxRows: Math.round(value) })
-						}
-						formatValue={(value) => `${Math.round(value)}`}
-					/>
-				)}
-				{advanced && (
-					<SliderControl
-						label={tSettings("captions.bottomOffset", "Bottom offset")}
-						value={autoCaptionSettings.bottomOffset}
-						min={0}
-						max={30}
-						step={1}
-						onChange={(value) => updateAutoCaptionSettings({ bottomOffset: value })}
-						formatValue={(value) => `${Math.round(value)}%`}
-					/>
-				)}
-				{advanced && (
-					<SliderControl
-						label={tSettings("captions.maxWidth", "Max width")}
-						value={autoCaptionSettings.maxWidth}
-						min={40}
-						max={95}
-						step={1}
-						onChange={(value) => updateAutoCaptionSettings({ maxWidth: value })}
-						formatValue={(value) => `${Math.round(value)}%`}
-					/>
-				)}
-				{advanced && (
-					<SliderControl
-						label={tSettings("captions.boxRadius", "Box radius")}
-						value={autoCaptionSettings.boxRadius}
-						min={0}
-						max={40}
-						step={0.5}
-						onChange={(value) => updateAutoCaptionSettings({ boxRadius: value })}
-						formatValue={(value) =>
-							`${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}px`
-						}
-					/>
-				)}
-				{advanced && (
-					<SliderControl
-						label={tSettings("captions.backgroundOpacity", "Background opacity")}
-						value={autoCaptionSettings.backgroundOpacity}
-						min={0}
-						max={1}
-						step={0.01}
-						onChange={(value) =>
-							updateAutoCaptionSettings({ backgroundOpacity: value })
-						}
-						formatValue={(value) => `${Math.round(value * 100)}%`}
-					/>
-				)}
-			</div>
-		</section>
-	);
-
 	const effectSectionContent = (() => {
 		const settingsSectionContent = (
 			<SettingsSections
-				categories={
-					advanced
-						? ["general", "account", "permissions", "motion", "advanced"]
-						: ["general", "account", "permissions", "motion"]
-				}
+				categories={["general", "account", "permissions", "motion"]}
 			>
 				<SettingsCategory category="account">
-					<AccountSettings key={accountUser?.id ?? "signed-out"} user={accountUser} />
+					<LocalProfileForm />
 				</SettingsCategory>
 				<SettingsCategory category="permissions">
 					<RecordingPermissionsSettings onReview={onShowOnboarding} />
@@ -2317,32 +1877,6 @@ export function SettingsPanel({
 							</SelectContent>
 						</Select>
 					</SettingsRow>
-				</SettingsCategory>
-				<SettingsCategory category="advanced">
-					{advanced && (
-						<section className="flex flex-col gap-4">
-							<SectionLabel>{tSettings("updates.title", "Updates")}</SectionLabel>
-							<SettingsRow
-								title={tSettings("updates.experimental", "Experimental updates")}
-								description={tSettings(
-									"updates.experimentalDescription",
-									"This is the front line of user testing - highly experimental so expect bugs",
-								)}
-							>
-								<Switch
-									checked={experimentalUpdatesEnabled}
-									disabled={savingExperimentalUpdates}
-									onCheckedChange={(enabled) =>
-										void updateExperimentalUpdatesPreference(enabled)
-									}
-									aria-label={tSettings(
-										"updates.experimental",
-										"Experimental updates",
-									)}
-								/>
-							</SettingsRow>
-						</section>
-					)}
 				</SettingsCategory>
 				<SettingsCategory category="motion">
 					<section className="flex flex-col gap-6">
@@ -2797,8 +2331,6 @@ export function SettingsPanel({
 				return sceneSectionContent;
 			case "crop":
 				return sceneSectionContent;
-			case "captions":
-				return captionsSectionContent;
 			case "caption":
 				return captionSectionContent;
 			case "cursor":
@@ -3069,7 +2601,11 @@ export function SettingsPanel({
 								</>
 							)}
 							<SliderControl
-								label={tSettings("effects.webcamWidth", "Webcam Width")}
+								label={
+									advanced
+										? tSettings("effects.webcamWidth", "Webcam Width")
+										: tSettings("effects.webcamSize", "Webcam Size")
+								}
 								value={webcamWidth}
 								min={10}
 								max={100}
@@ -3380,3 +2916,5 @@ export function SettingsPanel({
 		</Card>
 	);
 }
+
+export const SettingsPanel = memo(SettingsPanelContent);

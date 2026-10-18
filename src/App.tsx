@@ -23,19 +23,21 @@ const UpdateToastWindow = lazy(() =>
 );
 const EditorWindow = lazy(() => import("./components/video-editor/EditorWindow"));
 const CapturePicker = lazy(() => import("./components/capture-picker/CapturePicker"));
+const RecordingInkWindow = lazy(() => import('./components/launch/drawing/RecordingInkWindow'));
 
 export default function App() {
 	const [windowType] = useState(
 		() => new URLSearchParams(window.location.search).get("windowType") || "",
 	);
 	const { t } = useI18n();
-	const appIconSrc = "/app-icons/recordly-128.png";
+	const appIconSrc = "/app-icons/syka-recorder-128.png";
 
 	useEffect(() => {
 		document.documentElement.dataset.windowType = windowType;
 
 		if (
 			windowType === "hud-overlay" ||
+      windowType === 'recording-ink' ||
 			windowType === "source-selector" ||
 			windowType === "countdown" ||
 			windowType === "update-toast" ||
@@ -61,12 +63,15 @@ export default function App() {
 	useEffect(() => {
 		document.title =
 			windowType === "editor"
-				? t("app.editorTitle", "Recordly Editor")
-				: t("app.name", "Recordly");
+				? t("app.editorTitle", "Syka Recorder Editor")
+				: t("app.name", "Syka Recorder");
 	}, [windowType, t]);
 
 	let content;
 	switch (windowType) {
+    case 'recording-ink':
+      content = <RecordingInkWindow />;
+      break;
 		case "hud-overlay":
 			content = <HudWindow />;
 			break;
@@ -91,12 +96,12 @@ export default function App() {
 					<Card className="flex-row items-center gap-4 px-6 py-5">
 						<img
 							src={appIconSrc}
-							alt={t("app.name", "Recordly")}
+							alt={t("app.name", "Syka Recorder")}
 							className="h-12 w-12 rounded-xl"
 						/>
 						<div>
 							<h1 className="text-xl font-semibold tracking-tight">
-								{t("app.name", "Recordly")}
+								{t("app.name", "Syka Recorder")}
 							</h1>
 							<p className="text-sm text-foreground/65">
 								{t("app.subtitle", "Screen recording and editing")}

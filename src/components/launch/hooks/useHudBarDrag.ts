@@ -1,4 +1,4 @@
-import { type PointerEvent, type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, type PointerEvent, type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import {
 	mergeHudInteractiveBounds,
 	shouldRestoreHudMousePassthroughAfterDrag,
@@ -83,19 +83,17 @@ export function useHudBarDrag({
 	}, [hudBarRef, keepHudBarInsideViewport]);
 
 	const handleHudBarPointerDown = useCallback(
-		(event: PointerEvent<HTMLDivElement>) => {
-			if (event.button !== 0) {
+		(event: PointerEvent<HTMLElement>) => {
+			if (event.button !== 0 || !hudBarRef.current || hudDragStartRef.current) {
 				return;
 			}
 
 			event.preventDefault();
+			event.currentTarget.focus({ preventScroll: true });
 			event.currentTarget.setPointerCapture(event.pointerId);
 			isHudDraggingRef.current = true;
 			setIsHudDragging(true);
 			window.electronAPI?.hudOverlaySetIgnoreMouse?.(false);
-			if (!hudBarRef.current) {
-				return;
-			}
 			const hudRect = hudBarRef.current.getBoundingClientRect();
 			hudDragStartRef.current = {
 				pointerId: event.pointerId,
@@ -112,7 +110,7 @@ export function useHudBarDrag({
 		[hudBarRef],
 	);
 
-	const handleHudBarPointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+	const handleHudBarPointerMove = useCallback((event: PointerEvent<HTMLElement>) => {
 		const dragState = hudDragStartRef.current;
 		if (!dragState || dragState.pointerId !== event.pointerId) {
 			return;
@@ -158,16 +156,20 @@ export function useHudBarDrag({
 	}, []);
 
 	const handleHudBarPointerUp = useCallback(
-		(event: PointerEvent<HTMLDivElement>) => {
+		(event: PointerEvent<HTMLElement>) => {
 			const dragState = hudDragStartRef.current;
 			if (!dragState || dragState.pointerId !== event.pointerId) {
 				return;
 			}
 
-			const pointer = hudDragPendingPointerRef.current || {
-				clientX: event.clientX,
-				clientY: event.clientY,
-			};
+			// A fast release can arrive before the last animation frame. Use its
+			// actual position; cancellation/lost capture must keep the last position.
+			const pointer = event.type === "pointerup"
+				? { clientX: event.clientX, clientY: event.clientY }
+				: hudDragPendingPointerRef.current ?? {
+					clientX: dragState.startX + recordingHudOffsetRef.current.x - dragState.originX,
+					clientY: dragState.startY + recordingHudOffsetRef.current.y - dragState.originY,
+				};
 			const deltaX = pointer.clientX - dragState.startX;
 			const deltaY = pointer.clientY - dragState.startY;
 			const viewportWidth = window.innerWidth;
@@ -186,6 +188,10 @@ export function useHudBarDrag({
 				x: dragState.originX + (clampedLeft - dragState.initialLeft),
 				y: dragState.originY + (clampedTop - dragState.initialTop),
 			};
+			if (hudBarTransformRef.current) {
+				const { x, y } = recordingHudOffsetRef.current;
+				hudBarTransformRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+			}
 
 			if (hudDragMoveRafRef.current !== null) {
 				cancelAnimationFrame(hudDragMoveRafRef.current);
@@ -227,6 +233,32 @@ export function useHudBarDrag({
 		[hudBarRef, hudContentRef, recordingWebcamPreviewContainerRef],
 	);
 
+	const handleHudBarKeyDown = useCallback((event: KeyboardEvent<HTMLElement>) => {
+		const directions: Record<string, { x: number; y: number }> = {
+			ArrowLeft: { x: -1, y: 0 },
+			ArrowRight: { x: 1, y: 0 },
+			ArrowUp: { x: 0, y: -1 },
+			ArrowDown: { x: 0, y: 1 },
+		};
+		const direction = directions[event.key];
+		if (!direction || !hudBarRef.current || isHudDraggingRef.current) return;
+		event.preventDefault();
+		const step = event.shiftKey ? 40 : 10;
+		const dx = direction.x * step;
+		const dy = direction.y * step;
+		const bounds = hudBarRef.current.getBoundingClientRect();
+		const nextOffset = clampHudOffsetToViewport(
+			{ x: recordingHudOffsetRef.current.x + dx, y: recordingHudOffsetRef.current.y + dy },
+			{ left: bounds.left + dx, right: bounds.right + dx, top: bounds.top + dy, bottom: bounds.bottom + dy },
+			{ width: window.innerWidth, height: window.innerHeight },
+		);
+		recordingHudOffsetRef.current = nextOffset;
+		if (hudBarTransformRef.current) {
+			hudBarTransformRef.current.style.transform = `translate3d(${nextOffset.x}px, ${nextOffset.y}px, 0)`;
+		}
+		setRecordingHudOffset(nextOffset);
+	}, [hudBarRef]);
+
 	useEffect(() => {
 		return () => {
 			if (hudDragMoveRafRef.current !== null) {
@@ -246,5 +278,7 @@ export function useHudBarDrag({
 		handleHudBarPointerDown,
 		handleHudBarPointerMove,
 		handleHudBarPointerUp,
+		handleHudBarLostPointerCapture: handleHudBarPointerUp,
+		handleHudBarKeyDown,
 	};
 }

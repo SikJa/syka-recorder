@@ -4,15 +4,16 @@ import type { MessageBoxOptions, MessageBoxReturnValue } from "electron";
 import { app, BrowserWindow, dialog } from "electron";
 import { autoUpdater } from "electron-updater";
 import { USER_DATA_PATH } from "./appPaths";
-import { readAppSetting, writeAppSetting } from "./appSettingsStore";
+import { writeAppSetting } from "./appSettingsStore";
 import { EXPERIMENTAL_UPDATE_DESCRIPTION, getUpdateChannelConfiguration } from "./updateChannel";
 
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const INITIAL_UPDATE_CHECK_DELAY_MS = 15 * 1000;
 export const UPDATE_REMINDER_DELAY_MS = 3 * 60 * 60 * 1000;
 const DISMISSED_READY_REMINDER_DELAY_MS = 5 * 60 * 1000;
-const AUTO_UPDATES_DISABLED = process.env.RECORDLY_DISABLE_AUTO_UPDATES === "1";
 const UPDATE_FEED_URL_OVERRIDE = process.env.RECORDLY_UPDATE_FEED_URL?.trim() ?? "";
+// Packaged releases use the explicit Syka feed embedded by electron-builder.
+const AUTO_UPDATES_DISABLED = process.env.RECORDLY_DISABLE_AUTO_UPDATES === "1";
 const UPDATER_LOG_PATH =
 	process.env.RECORDLY_UPDATER_LOG_PATH?.trim() || path.join(USER_DATA_PATH, "updater.log");
 const DEV_UPDATE_PREVIEW_VERSION = "9.9.9";
@@ -69,6 +70,7 @@ type UpdateToastSender = (
 ) => boolean;
 
 let updaterInitialized = false;
+let getUpdateInstallBlockReason: () => string | null = () => "Syka Recorder is still starting.";
 let updateCheckInProgress = false;
 let manualCheckRequested = false;
 let periodicCheckTimer: NodeJS.Timeout | null = null;
@@ -133,7 +135,8 @@ function configureUpdateFeed() {
 }
 
 export function getExperimentalUpdatesEnabled() {
-	return readAppSetting(EXPERIMENTAL_UPDATES_SETTING_KEY) === true;
+	// Recorder ships stable updates only, including profiles inherited from upstream.
+	return false;
 }
 
 function applyExperimentalUpdatesPreference() {
@@ -141,7 +144,7 @@ function applyExperimentalUpdatesPreference() {
 	const { channel, allowPrerelease, allowDowngrade } = getUpdateChannelConfiguration(enabled);
 	autoUpdater.channel = channel;
 	autoUpdater.allowPrerelease = allowPrerelease;
-	// Changing channels enables downgrades inside electron-updater. Recordly never
+	// Changing channels enables downgrades inside electron-updater. Syka Recorder never
 	// needs that behaviour: opting out waits for the next stable version instead.
 	autoUpdater.allowDowngrade = allowDowngrade;
 	writeUpdaterLog(
@@ -261,10 +264,10 @@ function createDownloadingUpdateToastPayload(
 		phase: "downloading",
 		detail:
 			normalizedProgress >= 100
-				? "Finishing the update download. Recordly will restart as soon as the installer is ready."
+				? "Finishing the update download. Syka Recorder will restart as soon as the installer is ready."
 				: remainingMb !== null
-					? `${remainingMb.toFixed(1)} MB left before Recordly restarts.`
-					: "Downloading the update now. Recordly will restart when it finishes.",
+					? `${remainingMb.toFixed(1)} MB left before Syka Recorder restarts.`
+					: "Downloading the update now. Syka Recorder will restart when it finishes.",
 		delayMs: UPDATE_REMINDER_DELAY_MS,
 		isExperimental,
 		progressPercent: normalizedProgress,
@@ -433,6 +436,14 @@ export function installDownloadedUpdateNow(sendToRenderer?: UpdateToastSender) {
 		resetDevPreviewState(sendToRenderer);
 		return;
 	}
+	if (!pendingDownloadedVersion) return;
+	const blocked = getUpdateInstallBlockReason();
+	if (blocked) {
+		installAfterDownloadRequested = false;
+		emitUpdateToastState(sendToRenderer, { ...createDownloadedUpdateToastPayload(pendingDownloadedVersion), detail: blocked });
+		void dialog.showMessageBox({ type: "info", title: "Actualizar Syka Recorder", message: blocked, buttons: ["Entendido"] });
+		return;
+	}
 
 	clearDeferredReminderTimer();
 	downloadToastDismissed = false;
@@ -471,7 +482,7 @@ export async function downloadAvailableUpdate(
 	setUpdateStatusSummary({
 		status: "downloading",
 		availableVersion,
-		detail: `Downloading Recordly ${availableVersion}`,
+		detail: `Downloading Syka Recorder ${availableVersion}`,
 	});
 	emitUpdateToastState(
 		sendToRenderer,
@@ -589,7 +600,7 @@ async function showAvailableUpdateDialog(
 	const result = await showMessageBox(getMainWindow, {
 		type: "info",
 		title: isExperimental ? "Experimental Update Available" : "Update Available",
-		message: `Recordly ${version} is available${isExperimental ? " on the experimental channel" : ""}.`,
+		message: `Syka Recorder ${version} is available${isExperimental ? " on the experimental channel" : ""}.`,
 		detail: isPreview
 			? `${isExperimental ? EXPERIMENTAL_UPDATE_DESCRIPTION : "This is a development preview of the standard update flow."} No real update will be installed.`
 			: isExperimental
@@ -633,8 +644,8 @@ async function showDownloadedUpdateDialog(
 		type: "info",
 		title: "Update Ready",
 		message: isPreview
-			? `Recordly ${version} is ready to install.`
-			: `Recordly ${version} has been downloaded.`,
+			? `Syka Recorder ${version} is ready to install.`
+			: `Syka Recorder ${version} has been downloaded.`,
 		detail: isPreview
 			? "Development preview of the native update prompt. No real update will be installed."
 			: "Install and restart now, or remind me later.",
@@ -686,7 +697,7 @@ async function showUpdateErrorDialog(
 	await showMessageBox(getMainWindow, {
 		type: "error",
 		title: "Update Failed",
-		message: `Recordly ${version} could not be downloaded.`,
+		message: `Syka Recorder ${version} could not be downloaded.`,
 		detail: String(error),
 		buttons: ["OK"],
 		defaultId: 0,
@@ -745,7 +756,9 @@ export async function checkForAppUpdates(
 export function setupAutoUpdates(
 	getMainWindow: () => BrowserWindow | null,
 	sendToRenderer: UpdateToastSender,
+	getInstallBlockReason: () => string | null,
 ) {
+	getUpdateInstallBlockReason = getInstallBlockReason;
 	if (updaterInitialized) {
 		return;
 	}
@@ -782,7 +795,7 @@ export function setupAutoUpdates(
 		setUpdateStatusSummary({
 			status: "available",
 			availableVersion: info.version,
-			detail: `Recordly ${info.version} is available.`,
+			detail: `Syka Recorder ${info.version} is available.`,
 		});
 		if (skippedVersion === info.version) {
 			manualCheckRequested = false;
@@ -810,7 +823,7 @@ export function setupAutoUpdates(
 		setUpdateStatusSummary({
 			status: "up-to-date",
 			availableVersion: null,
-			detail: `Recordly ${app.getVersion()} is up to date.`,
+			detail: `Syka Recorder ${app.getVersion()} is up to date.`,
 		});
 		clearVisibleUpdateToast(sendToRenderer);
 		manualCheckRequested = false;
@@ -825,7 +838,7 @@ export function setupAutoUpdates(
 		setUpdateStatusSummary({
 			status: "downloading",
 			availableVersion,
-			detail: `Downloading Recordly ${availableVersion}`,
+			detail: `Downloading Syka Recorder ${availableVersion}`,
 		});
 		writeUpdaterLog(
 			`Download progress for ${availableVersion}: ${progress.percent.toFixed(1)}%`,
@@ -884,7 +897,7 @@ export function setupAutoUpdates(
 		setUpdateStatusSummary({
 			status: "ready",
 			availableVersion: info.version,
-			detail: `Recordly ${info.version} is ready to install.`,
+			detail: `Syka Recorder ${info.version} is ready to install.`,
 		});
 		clearDeferredReminderTimer();
 

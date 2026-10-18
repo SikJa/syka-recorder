@@ -1,13 +1,13 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { CURSOR_MOTION_PRESETS } from "./cursorMotionPresets";
-import { DEFAULT_CURSOR_MOTION_BLUR } from "./types";
 import {
 	fromFileUrl,
 	normalizeProjectEditor,
 	stripPersistedDevMotionBlurSettings,
 	toFileUrl,
 } from "./projectPersistence";
+import { DEFAULT_CURSOR_MOTION_BLUR } from "./types";
 
 describe("Audio path handling", () => {
 	describe("toFileUrl produces valid file:// URLs for audio paths", () => {
@@ -303,14 +303,14 @@ describe("Dev-only motion blur persistence", () => {
 				maxDirectionalBlurPx: 96,
 				maxRadialBlurStrength: 1.5,
 			},
-			wallpaper: "/wallpapers/wallpaper2.jpg",
+			wallpaper: "#1d4ed8",
 		} as any);
 
 		expect(stripped).not.toHaveProperty("zoomMotionBlurTuning");
 
 		const result = normalizeProjectEditor(stripped as any);
 
-		expect(result.wallpaper).toBe("/wallpapers/wallpaper2.jpg");
+		expect(result.wallpaper).toBe("#1d4ed8");
 		expect(result.zoomMotionBlurTuning).toEqual(defaults.zoomMotionBlurTuning);
 	});
 });

@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
 	windows: vi.fn(),
 	writeAppSetting: vi.fn(),
 	setHudRecordingPreparationActive: vi.fn(),
+	moveHud: vi.fn(),
+	displayBounds: vi.fn(() => ({ x: -1920, y: 0, width: 1920, height: 1080 })),
 }));
 vi.mock("electron", () => ({
 	ipcMain: {
@@ -27,10 +29,11 @@ vi.mock("node:util", () => ({ promisify: () => mocks.exec }));
 vi.mock("../../appSettingsStore", () => ({ writeAppSetting: mocks.writeAppSetting }));
 vi.mock("../../windows", () => ({
 	setHudRecordingPreparationActive: mocks.setHudRecordingPreparationActive,
+	moveHudOverlayToCaptureBounds: mocks.moveHud,
 }));
 vi.mock("../constants", () => ({ ALLOW_RECORDLY_WINDOW_CAPTURE: false }));
 vi.mock("../cursor/bounds", () => ({ stopWindowBoundsCapture: vi.fn() }));
-vi.mock("../recording/ffmpeg", () => ({}));
+vi.mock("../recording/ffmpeg", () => ({ getDisplayBoundsForSource: mocks.displayBounds }));
 vi.mock("../windowsWindowControl", () => ({}));
 vi.mock("../captureSelection", () => ({
 	validateCaptureSource: mocks.validate,
@@ -99,6 +102,15 @@ function pickerFixture() {
 			mocks.handlers.get("select-source")!({ sender: win.webContents }, source),
 	};
 }
+it("moves the HUD and camera to the selected monitor, including negative desktop coordinates", async () => {
+	const picker = pickerFixture();
+	const pending = picker.pickSourceList();
+	const source = { id: "screen:2:0", name: "Screen 2", display_id: "2" };
+	await picker.select(source);
+	await pending;
+	expect(mocks.displayBounds).toHaveBeenCalledWith(source);
+	expect(mocks.moveHud).toHaveBeenCalledWith({ x: -1920, y: 0, width: 1920, height: 1080 });
+});
 for (const operatingSystem of ["darwin", "win32", "linux"]) {
 	it(`opens recording onboarding from the HUD on ${operatingSystem}`, () => {
 		Object.defineProperty(process, "platform", { value: operatingSystem });

@@ -1,6 +1,6 @@
 import { getLocalMediaServerPath } from "@/lib/localMediaUrl";
 import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/audioTypes";
-import { DEFAULT_WALLPAPER_PATH } from "@/lib/wallpapers";
+import { normalizeWallpaperValue } from "@/lib/wallpapers";
 import { ASPECT_RATIOS, type AspectRatio, isCustomAspectRatio } from "@/utils/aspectRatioUtils";
 import { closeClipGaps, rippleRegionAnchors, rippleRegions } from "./clipSequence";
 import { CURSOR_MOTION_PRESETS, resolveCursorMotionPresetId } from "./cursorMotionPresets";
@@ -66,6 +66,7 @@ import {
 import { convertLegacyWebcamRadiusToRoundness, normalizeWebcamCropRegion } from "./webcamOverlay";
 
 export const PROJECT_VERSION = 2;
+const REMOVED_CURSOR_STYLES = new Set(["macos", "tahoe", "tahoe-inverted", "windows11", "mono"]);
 export const MACOS_DEFAULT_BORDER_RADIUS_PERCENT = 8;
 const LEGACY_BORDER_RADIUS_REFERENCE_PX = 1080;
 
@@ -770,11 +771,12 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 	)
 		? (webcam as Partial<{ zoomScaleEffect: number }>).zoomScaleEffect
 		: null;
+	// macOS, Tahoe and Windows 11 cursor artwork is no longer bundled.
 	const normalizedCursorStyle =
-		typeof editor.cursorStyle === "string" && editor.cursorStyle.trim().length > 0
-			? editor.cursorStyle === "mono"
-				? "tahoe-inverted"
-				: editor.cursorStyle
+		typeof editor.cursorStyle === "string" &&
+		editor.cursorStyle.trim().length > 0 &&
+		!REMOVED_CURSOR_STYLES.has(editor.cursorStyle)
+			? editor.cursorStyle
 			: DEFAULT_CURSOR_STYLE;
 	const normalizedMotionValues = {
 		zoomInDurationMs: normalizedZoomInDurationMs,
@@ -834,7 +836,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		CURSOR_MOTION_PRESETS[resolveCursorMotionPresetId(normalizedMotionValues)];
 
 	return {
-		wallpaper: typeof editor.wallpaper === "string" ? editor.wallpaper : DEFAULT_WALLPAPER_PATH,
+		wallpaper: normalizeWallpaperValue(editor.wallpaper),
 		shadowIntensity: typeof editor.shadowIntensity === "number" ? editor.shadowIntensity : 0.67,
 		backgroundBlur: normalizedBackgroundBlur,
 		zoomMotionBlur: normalizedZoomMotionBlur,

@@ -143,6 +143,19 @@ export function shouldGrantMediaPermission(
 	);
 }
 
+export function shouldGrantEditorFullscreen(
+	currentDocumentUrl: string,
+	isMainFrame: boolean,
+	trustedDocumentBaseUrls: readonly string[],
+): boolean {
+	const url = parseUrl(currentDocumentUrl);
+	if (!isMainFrame || !url || url.searchParams.getAll("windowType").length !== 1 || url.searchParams.get("windowType") !== "editor" || url.username || url.password) return false;
+	return trustedDocumentBaseUrls.some((base) => {
+		const trusted = parseUrl(base);
+		return trusted && isValidTrustedBaseUrl(trusted) && hasSameBaseLocation(url, trusted);
+	});
+}
+
 export function shouldGrantDisplayCapture(
 	request: DisplayCapturePolicyRequest,
 	trustedDocumentBaseUrls: readonly string[],

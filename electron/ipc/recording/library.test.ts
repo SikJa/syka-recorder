@@ -62,7 +62,7 @@ afterEach(async () => {
 	await fs.rm(state.root, { recursive: true, force: true });
 });
 
-it("lists recordings, moves recordings and their companions to Trash with reversible removals, and excludes companion media and symlinks", async () => {
+it("lists recordings, moves recordings and their companions to Trash with reversible removals, and excludes companion media", async () => {
 	const first = path.join(state.root, "recording-old.mp4");
 	const second = path.join(state.root, "recording-new.mov");
 	for (const name of [
@@ -72,7 +72,6 @@ it("lists recordings, moves recordings and their companions to Trash with revers
 		path.join(state.root, "recording-new.mic.wav"),
 	])
 		await fs.writeFile(name, "fixture");
-	await fs.symlink(first, path.join(state.root, "linked.mp4"));
 	expect((await listRecordings()).map((entry) => entry.path).sort()).toEqual(
 		[first, second].sort(),
 	);
@@ -328,10 +327,26 @@ it("restores on volumes without hard links and preserves conflicts", async () =>
 	}
 });
 
-it("Raw includes camera and audio sources without including metadata or symlinks", async () => {
+it("Raw includes camera and audio sources without including metadata", async () => {
  const files = ["screen.mp4", "screen.webcam.mp4", "screen.mic.wav", "screen.system.m4a"];
  for (const name of [...files, "screen.cursor.json"]) await fs.writeFile(path.join(state.root, name), "fixture");
- await fs.symlink(path.join(state.root, "screen.mp4"), path.join(state.root, "linked.mp4"));
  expect((await listRecordings(true)).map(entry => entry.name).sort()).toEqual(files.sort());
  expect((await listRecordings()).map(entry => entry.name)).toEqual(["screen.mp4"]);
+});
+
+it("excludes symbolic links from normal and Raw libraries", async (context) => {
+	const source = path.join(state.root, "screen.mp4");
+	await fs.writeFile(source, "fixture");
+	try {
+		await fs.symlink(source, path.join(state.root, "linked.mp4"));
+	} catch (error) {
+		if (process.platform === "win32" && (error as NodeJS.ErrnoException).code === "EPERM") {
+			context.skip(); // Windows requires Developer Mode or the symlink privilege.
+			return;
+		}
+		throw error;
+	}
+	for (const raw of [false, true]) {
+		expect((await listRecordings(raw)).map((entry) => entry.path)).toEqual([source]);
+	}
 });

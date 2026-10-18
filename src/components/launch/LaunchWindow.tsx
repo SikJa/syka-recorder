@@ -1,11 +1,13 @@
 import {
 	ArrowClockwiseIcon,
 	House,
-	DotsThreeVerticalIcon,
+	DotsSixVerticalIcon,
+	HandGrabbingIcon,
 	MicrophoneIcon,
 	MicrophoneSlashIcon,
 	MinusIcon,
 	MonitorIcon,
+	RecordIcon,
 	TimerIcon,
 	VideoCameraIcon,
 	VideoCameraSlashIcon,
@@ -25,12 +27,14 @@ import {
 	WEBCAM_PREVIEW_RESIZE_HANDLES,
 } from "./floatingWebcamPreview";
 import { useHudBarDrag } from "./hooks/useHudBarDrag";
+import { useHudInputShape } from "./hooks/useHudInputShape";
 import { useLaunchHudInteractionState } from "./hooks/useLaunchHudInteractionState";
 import { useLaunchWindowActions } from "./hooks/useLaunchWindowActions";
 import { useLaunchWindowSystemState } from "./hooks/useLaunchWindowSystemState";
 import { useRecordingTimer } from "./hooks/useRecordingTimer";
 import { useWebcamPreviewOverlay } from "./hooks/useWebcamPreviewOverlay";
 import styles from "./LaunchWindow.module.css";
+import "./hudMotion.css";
 import { MarqueeText } from "./MarqueeText";
 import { CountdownPopover } from "./popovers/CountdownPopover";
 import {
@@ -41,6 +45,9 @@ import { MicPopover } from "./popovers/MicPopover";
 import { toast } from "@/components/ui/toast";
 import { WebcamPopover } from "./popovers/WebcamPopover";
 import { RecordingControls } from "./RecordingControls";
+import { CornersOut, PencilSimple } from '@phosphor-icons/react';
+import { DrawingInput, DrawingTools, DRAWING_TOOLS } from './drawing/DrawingTools';
+import { useRecordingDrawing } from './drawing/useRecordingDrawing';
 
 export function LaunchWindow() {
 	return (
@@ -80,6 +87,7 @@ function LaunchWindowContent() {
 	} = useScreenRecorder();
 
 	const { elapsed, formatTime } = useRecordingTimer(recording, paused);
+  const drawing = useRecordingDrawing(recording);
 	const hudContentRef = useRef<HTMLDivElement>(null);
 	const hudBarRef = useRef<HTMLDivElement>(null);
 
@@ -98,6 +106,7 @@ function LaunchWindowContent() {
 
 	const { hudOverlayMousePassthroughSupported, platform } =
 		useLaunchWindowSystemState(preparePermissions);
+	useHudInputShape(platform);
 
 	useEffect(() => {
 		if (!selectedDeviceId) {
@@ -156,6 +165,8 @@ function LaunchWindowContent() {
 		handleHudBarPointerDown,
 		handleHudBarPointerMove,
 		handleHudBarPointerUp,
+		handleHudBarLostPointerCapture,
+		handleHudBarKeyDown,
 	} = useHudBarDrag({
 		hudContentRef,
 		hudBarRef,
@@ -246,6 +257,7 @@ function LaunchWindowContent() {
 			variant="ghost"
 			size="icon"
 			iconSize="lg"
+			className={styles.compactAction}
 			aria-label={t("recording.home")}
 			title={t("recording.home")}
 			onClick={openHome}
@@ -254,15 +266,18 @@ function LaunchWindowContent() {
 		</Button>
 	);
 
-	const recordingControls = (
+	const recordingControls = drawing.compact ? (
+    <Button variant="ghost" size="icon" className={styles.compactAction} title="Restaurar controles" aria-label="Restaurar controles" onClick={drawing.minimize}><CornersOut size={16}/></Button>
+  ) : (
 		<RecordingControls
+      drawingButton={platform === 'win32' ? <Button variant="ghost" size="icon" className={`${styles.compactAction} ${drawing.active ? 'text-accent bg-accent-soft' : ''}`} title={drawing.active ? `${DRAWING_TOOLS[drawing.tool].label} activo · Esc: mouse` : 'Dibujar en pantalla (P)'} aria-label="Herramientas de dibujo" aria-expanded={drawing.panel} onClick={()=>void drawing.togglePanel()}><PencilSimple size={16}/></Button> : undefined}
 			onHome={openHome}
 			paused={paused}
 			microphoneEnabled={microphoneEnabled}
 			elapsed={elapsed}
 			onPauseResume={paused ? resumeRecording : pauseRecording}
 			onStopRecording={toggleRecording}
-			onHideHud={() => window.electronAPI?.hudOverlayHide?.()}
+			onHideHud={drawing.minimize}
 			onCancelRecording={cancelRecording}
 			formatTime={formatTime}
 		/>
@@ -273,22 +288,24 @@ function LaunchWindowContent() {
 			<Button
 				variant="ghost"
 				size="lg"
-				className={`${styles.electronNoDrag} group gap-2 px-3 min-w-0 max-w-[180px] shrink-0`}
+				className={`${styles.electronNoDrag} ${styles.sourceAction} group gap-2 min-w-0 shrink-0`}
 				title={selectedSource}
 				aria-label="Choose recording source"
 				disabled={isPickerPending || !sourceReady || recording || finalizing}
 				onClick={() => void handlePickOnScreen()}
 			>
-				<MonitorIcon size={18} className="size-5 shrink-0" />
+				<MonitorIcon size={18} className="size-[18px] shrink-0" />
 				<div className="flex-1 min-w-0 overflow-hidden">
-					{hasSelectedSource ? (
+					{isPickerPending ? (
+						<span>{t("sourceSelector.loadingSources")}</span>
+					) : hasSelectedSource ? (
 						<MarqueeText text={selectedSource} />
 					) : (
-						<span>Pick screen</span>
+						<span>{t("recording.screen")}</span>
 					)}
 				</div>
 			</Button>
-			<Separator orientation="vertical" className="mx-[5px] h-6 self-center" />
+			<Separator orientation="vertical" className="mx-1 h-4 self-center" />
 
 			<MicPopover
 				disabled={recording}
@@ -314,7 +331,7 @@ function LaunchWindowContent() {
 								? t("recording.disableMicrophone")
 								: t("recording.enableMicrophone")
 						}
-						className={microphoneEnabled ? "text-accent" : ""}
+						className={`${styles.compactAction} ${microphoneEnabled ? "text-accent" : ""}`}
 					>
 						{microphoneEnabled ? (
 							<MicrophoneIcon
@@ -358,7 +375,7 @@ function LaunchWindowContent() {
 								? t("recording.disableWebcam")
 								: t("recording.enableWebcam")
 						}
-						className={webcamEnabled ? "text-accent" : ""}
+						className={`${styles.compactAction} ${webcamEnabled ? "text-accent" : ""}`}
 					>
 						{webcamEnabled ? (
 							<VideoCameraIcon
@@ -382,7 +399,7 @@ function LaunchWindowContent() {
 						size="icon"
 						iconSize="lg"
 						title={t("recording.countdownDelay")}
-						className={countdownDelay > 0 ? "text-accent" : ""}
+						className={`${styles.compactAction} ${countdownDelay > 0 ? "text-accent" : ""}`}
 					>
 						<TimerIcon
 							weight={openId === "countdown" ? "fill" : "regular"}
@@ -394,17 +411,17 @@ function LaunchWindowContent() {
 
 			<Button
 				type="button"
-				variant="destructive"
+				variant="default"
 				size="icon"
-				className={styles.electronNoDrag}
+				className={`${styles.electronNoDrag} ${styles.compactAction} ${styles.recordAction}`}
 				onClick={hasSelectedSource ? toggleRecording : () => void handlePickOnScreen()}
 				disabled={countdownActive || isPickerPending || !sourceReady}
 				title={t("recording.record")}
 			>
-				<div className={styles.recDot} />
+				<RecordIcon className="size-5" />
 			</Button>
 
-			<Separator orientation="vertical" className="mx-[5px] h-6 self-center" />
+			<Separator orientation="vertical" className="mx-1 h-4 self-center" />
 
 			{homeButton}
 
@@ -413,6 +430,7 @@ function LaunchWindowContent() {
 				size="icon"
 				iconSize="lg"
 				onClick={() => window.electronAPI?.hudOverlayHide?.()}
+				className={styles.compactAction}
 				title={t("recording.hideHud")}
 			>
 				<MinusIcon className="size-5" />
@@ -423,6 +441,7 @@ function LaunchWindowContent() {
 				size="icon"
 				iconSize="lg"
 				onClick={() => window.electronAPI?.hudOverlayClose?.()}
+				className={styles.compactAction}
 				title={t("recording.closeApp")}
 			>
 				<XIcon className="size-5" />
@@ -449,9 +468,11 @@ function LaunchWindowContent() {
 		<HudInteractionContext.Provider
 			value={{ onMouseEnter: handleHudMouseEnter, onMouseLeave: handleHudMouseLeave }}
 		>
+      {recording && <DrawingInput drawing={drawing}/>}
+      {recording && <DrawingTools drawing={drawing} anchor={hudBarRef}/>}
 			<div
 				className="w-full flex justify-center bg-transparent overflow-visible items-end pb-5 pointer-events-none"
-				style={{ height: "100vh" }}
+				style={{ height: "100vh", position: 'relative', zIndex: 2 }}
 			>
 				<div
 					ref={hudContentRef}
@@ -466,30 +487,37 @@ function LaunchWindowContent() {
 						>
 							<motion.div
 								ref={hudBarRef}
+								data-hud-interactive
+								data-dragging={isHudDragging}
 								layout={shouldAnimateHudLayout}
 								transition={hudStateTransition}
 								className={`${styles.bar} launch-theme mb-2 pointer-events-auto`}
 								onMouseEnter={handleHudMouseEnter}
 								onMouseLeave={handleHudMouseLeave}
 							>
-								<div
+								<button
 									// Linux compositors and non-passthrough Windows fallback windows
 									// need native window dragging; the JS drag path only translates
 									// content inside the HUD window.
-									className={`flex items-center px-0.5 cursor-grab active:cursor-grabbing ${
+									type="button"
+									aria-label="Mover controles"
+									title="Arrastrá para mover · Flechas para ajustar"
+									data-hud-drag-handle
+									className={`${styles.dragHandle} ${
 										useNativeHudBarDrag ? styles.electronDrag : ""
 									}`}
-									onPointerDown={handleHudBarPointerDown}
-									onPointerMove={handleHudBarPointerMove}
-									onPointerUp={handleHudBarPointerUp}
-									onPointerCancel={handleHudBarPointerUp}
+									onPointerDown={useNativeHudBarDrag ? undefined : handleHudBarPointerDown}
+									onPointerMove={useNativeHudBarDrag ? undefined : handleHudBarPointerMove}
+									onPointerUp={useNativeHudBarDrag ? undefined : handleHudBarPointerUp}
+									onPointerCancel={useNativeHudBarDrag ? undefined : handleHudBarLostPointerCapture}
+									onLostPointerCapture={handleHudBarLostPointerCapture}
+									onKeyDown={useNativeHudBarDrag ? undefined : handleHudBarKeyDown}
 								>
-									<DotsThreeVerticalIcon
-										weight="fill"
-										size={18}
-										className="text-[#6b6b78]"
-									/>
-								</div>
+									<span className="t-icon-swap" data-state={isHudDragging ? "b" : "a"} aria-hidden="true">
+										<span className="t-icon" data-icon="a"><DotsSixVerticalIcon weight="bold" size={18} /></span>
+										<span className="t-icon" data-icon="b"><HandGrabbingIcon size={18} /></span>
+									</span>
+								</button>
 
 								<div className={styles.barStateViewport}>
 									<AnimatePresence initial={false} mode="wait">
@@ -532,6 +560,8 @@ function LaunchWindowContent() {
 								ref={recordingWebcamPreviewContainerRef}
 								className={`${styles.recordingWebcamPreview} ${styles.electronNoDrag} pointer-events-auto`}
 								data-hud-interactive
+								data-hud-drag-handle
+								data-recording-webcam-preview
 								title={t("recording.webcam")}
 								style={{
 									transform: `translate(${webcamPreviewOffset.x}px, ${webcamPreviewOffset.y}px)`,

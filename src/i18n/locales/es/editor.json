@@ -46,6 +46,8 @@
 		"videos": "Vídeos"
 	},
 	"playback": {
+		"fullscreen": "Ver en pantalla completa",
+		"exitFullscreen": "Salir de pantalla completa",
 		"play": "Reproducir",
 		"pause": "Pausar",
 		"skipBack": "Retroceder",
@@ -172,7 +174,7 @@
 	"account": { "title": "Cuenta", "comingSoon": "Cuenta próximamente" },
 	"nativeCaptureUnavailable": {
 		"title": "Nada está roto, pero no podremos renderizar una superposición de cursor animada.",
-		"description": "Tu dispositivo no es compatible con la captura nativa. Esto puede deberse a varias razones que todavía no hemos identificado. Recordly seguirá funcionando, pero hará imposible el suavizado del cursor.",
+		"description": "Tu dispositivo no es compatible con la captura nativa. Esto puede deberse a varias razones que todavía no hemos identificado. Syka Recorder seguirá funcionando, pero hará imposible el suavizado del cursor.",
 		"confirm": "Entendido"
 	},
 	"exportStatus": {

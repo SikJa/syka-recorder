@@ -49,3 +49,16 @@ gpu-export-probe.mp4
 # Browser test output
 test-results/
 playwright-report/
+output/playwright/
+
+# Local handoffs and machine-specific QA notes (keep on disk, out of publication)
+/HANDOFF-*.md
+/CONTINUAR-SYKA-RECORDER.md
+/SYKA-TRANSFER-STATUS.md
+/.env
+/.env.*
+!/.env.example
+/PROMPT-PARA-OPUS.md
+/PROPUESTA-BARRA-WHISPERA.md
+/preview/recorder-toolbar/
+/Abrir Syka Recorder.cmd

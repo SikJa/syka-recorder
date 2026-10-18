@@ -135,8 +135,8 @@ export function EditorTimelinePanel(props: Props) {
 					if (fragment) captionCommands.handleCaptionDelete(fragment.sourceCueId);
 				}}
 				onCaptionAdded={captionCommands.handleCaptionAdded}
-				captionsEnabled={timeline.autoCaptionSettings.enabled}
-				captionQuickAddEnabled={timeline.autoCaptionSettings.timelineQuickAdd}
+				captionsEnabled={false}
+				captionQuickAddEnabled={false}
 				annotationRegions={timeline.annotationRegions}
 				onAnnotationAdded={annotationCommands.handleAnnotationAdded}
 				onAnnotationSpanChange={annotationCommands.handleAnnotationSpanChange}

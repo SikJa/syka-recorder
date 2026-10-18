@@ -1,7 +1,8 @@
 {
 	"app": {
-		"name": "Recordly",
-		"editorTitle": "Recordly Editor",
+		"name": "Syka Recorder",
+		"editorTitle": "Syka Recorder Editor",
+		"basedOn": "Based on Recordly by webadderall (AGPL-3.0)",
 		"subtitle": "Запись экрана и редактирование видео",
 		"language": "Язык",
 		"manageRecordings": "Открыть папку с записями"

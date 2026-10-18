@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+import { Script } from "node:vm";
 
 const mainBundleUrl = new URL("../dist-electron/main.cjs", import.meta.url);
 const IMPORT_META_URL_CJS_REPLACEMENT = 'require("node:url").pathToFileURL(__filename).href';
@@ -326,6 +327,9 @@ function containsImportMetaInCode(line, state) {
 }
 
 export function normalizeElectronMainCjsSource(source) {
+	// A generated project template can contain import/export text and backticks.
+	// Let the JS parser certify already-valid CJS before attempting legacy repair.
+	try { new Script(source); return { source, changed: false }; } catch { /* Legacy ESM bundle. */ }
 	let changed = false;
 	const lineBreak = source.includes("\r\n") ? "\r\n" : "\n";
 	const lines = source.split(/\r?\n/);
@@ -394,6 +398,7 @@ export function normalizeElectronMainCjsSource(source) {
 }
 
 export function findElectronMainCjsEsmSyntax(source) {
+	try { new Script(source); return []; } catch { /* Report genuine syntax below. */ }
 	const lines = source.split(/\r?\n/);
 	const matches = [];
 	let state = { mode: null };

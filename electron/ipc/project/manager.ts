@@ -546,6 +546,14 @@ export async function loadProjectFromPath(projectPath: string) {
 		mediaSources.videoPath,
 		mediaSources.webcamPath,
 	];
+	// A saved background is a project dependency, just like its camera and audio.
+	// Approve only the referenced local media file, never its containing directory.
+	const wallpaper = typeof editorObj?.wallpaper === "string"
+		? normalizeVideoSourcePath(editorObj.wallpaper)
+		: null;
+	if (wallpaper && path.isAbsolute(wallpaper) && isSupportedLocalMediaPath(wallpaper)) {
+		approvedProjectPaths.push(wallpaper);
+	}
 	if (Array.isArray(audioTracks)) {
 		for (const track of audioTracks) {
 			if (typeof track?.sourcePath === "string") {

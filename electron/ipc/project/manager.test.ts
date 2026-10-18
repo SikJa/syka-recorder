@@ -287,6 +287,20 @@ describe("local media path policy", () => {
 		expect(result.success).toBe(true);
 		await expect(resolveApprovedLocalMediaPath(audioPath)).resolves.toBe(resolvedAudioPath);
 	});
+	it("restores access to a saved local background without approving neighboring files", async () => {
+		const folder = path.join(tempRoot, "Pictures");
+		await fs.mkdir(folder, { recursive: true });
+		const videoPath = path.join(tempPath, "screen.mp4");
+		const wallpaper = path.join(folder, "background.mp4");
+		const neighbor = path.join(folder, "unrelated.mp4");
+		const projectPath = path.join(tempPath, "background.recordly");
+		await Promise.all([videoPath, wallpaper, neighbor].map(file => fs.writeFile(file, "fixture")));
+		await fs.writeFile(projectPath, JSON.stringify({ version: 1, videoPath, editor: { wallpaper } }));
+		const { loadProjectFromPath, resolveApprovedLocalMediaPath } = await import("./manager");
+		expect((await loadProjectFromPath(projectPath)).success).toBe(true);
+		await expect(resolveApprovedLocalMediaPath(wallpaper)).resolves.toBe(await fs.realpath(wallpaper));
+		await expect(resolveApprovedLocalMediaPath(neighbor)).resolves.toBeNull();
+	});
 	it("returns a library entry while a thumbnail decode is still pending", async () => {
 		let release!: (data: Buffer) => void;
 		const pending = new Promise<Buffer>((resolve) => {

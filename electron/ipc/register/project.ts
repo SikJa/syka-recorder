@@ -31,7 +31,9 @@ import {
 	saveProjectThumbnail,
 	saveRecentProjectPaths,
 } from "../project/manager";
+import { getCaptureBounds } from "../cursor/telemetry";
 import { persistRecordingSessionManifest, resolveRecordingSession } from "../project/session";
+import { normalizeWebcamPreviewRect, sanitizeScreenRect } from "../project/webcamLayout";
 import {
 	currentProjectPath,
 	currentRecordingSession,
@@ -859,17 +861,35 @@ export function registerProjectHandlers() {
 				webcamPath?: string | null;
 				timeOffsetMs?: number;
 				hideOverlayCursorByDefault?: boolean;
+				/** Floating webcam preview at stop, in screen coordinates. */
+				webcamPreviewRect?: unknown;
 			},
 			options?: { preserveProjectPath?: boolean },
 		) => {
 			const normalizedVideoPath =
 				normalizeVideoSourcePath(session.videoPath) ?? session.videoPath;
+			const previewRect = sanitizeScreenRect(session.webcamPreviewRect);
+			let webcamLayout =
+				currentRecordingSession?.videoPath === normalizedVideoPath
+					? (currentRecordingSession.webcamLayout ?? null)
+					: null;
+			if (previewRect) {
+				try {
+					webcamLayout = normalizeWebcamPreviewRect(
+						previewRect,
+						getCaptureBounds({ x: previewRect.x, y: previewRect.y }),
+					);
+				} catch (error) {
+					console.warn("Could not map the webcam preview to the recording:", error);
+				}
+			}
 			setCurrentVideoPath(normalizedVideoPath);
 			setCurrentRecordingSession({
 				videoPath: normalizedVideoPath,
 				webcamPath: normalizeVideoSourcePath(session.webcamPath ?? null),
 				timeOffsetMs: normalizeRecordingTimeOffsetMs(session.timeOffsetMs),
 				hideOverlayCursorByDefault: normalizeBoolean(session.hideOverlayCursorByDefault),
+				webcamLayout,
 			});
 			await rememberApprovedLocalReadPath(currentRecordingSession!.videoPath);
 			await rememberApprovedLocalReadPath(currentRecordingSession!.webcamPath);

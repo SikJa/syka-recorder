@@ -26,8 +26,8 @@ import {
 } from "@/lib/pixiApplicationLifecycle";
 import {
 	DEFAULT_WALLPAPER_PATH,
-	DEFAULT_WALLPAPER_RELATIVE_PATH,
 	isVideoWallpaperSource,
+	normalizeWallpaperValue,
 } from "@/lib/wallpapers";
 import { type AspectRatio, formatAspectRatioForCSS } from "@/utils/aspectRatioUtils";
 import { AnnotationOverlay } from "./AnnotationOverlay";
@@ -2303,30 +2303,22 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			let mounted = true;
 			const revokeResolvedWallpaper = () => undefined;
 			(async () => {
+				const source = normalizeWallpaperValue(wallpaper);
 				try {
-					if (!wallpaper) {
-						const def = await getAssetPath(DEFAULT_WALLPAPER_RELATIVE_PATH);
-						if (mounted) {
-							setResolvedWallpaper(def);
-							setResolvedWallpaperKind("image");
-						}
-						return;
-					}
-
 					if (
-						wallpaper.startsWith("#") ||
-						wallpaper.startsWith("linear-gradient") ||
-						wallpaper.startsWith("radial-gradient")
+						source.startsWith("#") ||
+						source.startsWith("linear-gradient") ||
+						source.startsWith("radial-gradient")
 					) {
 						if (mounted) {
-							setResolvedWallpaper(wallpaper);
+							setResolvedWallpaper(source);
 							setResolvedWallpaperKind("style");
 						}
 						return;
 					}
 
-					if (isVideoWallpaperSource(wallpaper)) {
-						const videoSrc = await getRenderableVideoUrl(wallpaper);
+					if (isVideoWallpaperSource(source)) {
+						const videoSrc = await getRenderableVideoUrl(source);
 						if (mounted) {
 							setResolvedWallpaper(videoSrc);
 							setResolvedWallpaperKind("video");
@@ -2335,20 +2327,20 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					}
 
 					// If it's a data URL (custom uploaded image), use as-is
-					if (wallpaper.startsWith("data:")) {
+					if (source.startsWith("data:")) {
 						if (mounted) {
-							setResolvedWallpaper(wallpaper);
+							setResolvedWallpaper(source);
 							setResolvedWallpaperKind("image");
 						}
 						return;
 					}
 
 					if (
-						wallpaper.startsWith("http") ||
-						wallpaper.startsWith("file://") ||
-						wallpaper.startsWith("/")
+						source.startsWith("http") ||
+						source.startsWith("file://") ||
+						source.startsWith("/")
 					) {
-						const renderable = await getRenderableAssetUrl(wallpaper);
+						const renderable = await getRenderableAssetUrl(source);
 						if (mounted) {
 							setResolvedWallpaper(renderable);
 							setResolvedWallpaperKind("image");
@@ -2356,7 +2348,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						return;
 					}
 					const p = await getRenderableAssetUrl(
-						await getAssetPath(wallpaper.replace(/^\//, "")),
+						await getAssetPath(source.replace(/^\//, "")),
 					);
 					if (mounted) {
 						setResolvedWallpaper(p);
@@ -2364,10 +2356,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					}
 				} catch (_err) {
 					if (mounted) {
-						setResolvedWallpaper(wallpaper || DEFAULT_WALLPAPER_PATH);
-						setResolvedWallpaperKind(
-							isVideoWallpaperSource(wallpaper || "") ? "video" : "image",
-						);
+						setResolvedWallpaper(DEFAULT_WALLPAPER_PATH);
+						setResolvedWallpaperKind("style");
 					}
 				}
 			})();

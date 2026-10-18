@@ -109,6 +109,11 @@
 	"css": { "parser": { "cssModules": true, "tailwindDirectives": true } },
 	"overrides": [
 		{
+			"includes": ["src/lib/vendor/thinking-orbs/engine.js"],
+			"linter": { "enabled": false },
+			"formatter": { "enabled": false }
+		},
+		{
 			"includes": ["services/supabase/functions/**/*.ts"],
 			"javascript": { "globals": ["Deno"] }
 		},

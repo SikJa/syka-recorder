@@ -10,12 +10,17 @@ import { useExportDialogActions } from "./useExportDialogActions";
 import type { useExportDimensions } from "./useExportDimensions";
 import { useExportMessages } from "./useExportMessages";
 import { useExportRunner } from "./useExportRunner";
+import type { ExportRunnerInput } from "./exportRunnerSupport";
+import type { EditorProjectData } from "../projectPersistence";
+import { useSykaTransfer } from "./useSykaTransfer";
 import type { useExportSession } from "./useExportSession";
 import type { useExportSettings } from "./useExportSettings";
 import { useExportStatusViewModel } from "./useExportStatusViewModel";
 import { useSmokeExportAutomation } from "./useSmokeExportAutomation";
 
 type Input = {
+	projectData: EditorProjectData;
+	projectName: string;
 	t: ReturnType<typeof useI18n>["t"];
 	videoPath: string | null;
 	videoSourcePath: string | null;
@@ -45,7 +50,7 @@ type Input = {
 };
 
 export function useEditorExportController(input: Input) {
-	const runner = useExportRunner({
+	const runnerInput: ExportRunnerInput = {
 		videoPath: input.videoPath,
 		videoPlaybackRef: input.videoPlaybackRef,
 		isPlaying: input.isPlaying,
@@ -64,7 +69,9 @@ export function useEditorExportController(input: Input) {
 		experimentalNvidiaCudaExport: input.experimentalNvidiaCudaExport,
 		nvidiaCudaExportAvailable: input.nvidiaCudaExportAvailable,
 		remountPreview: input.remountPreview,
-	});
+	};
+	const runner = useExportRunner(runnerInput);
+	const sykaTransfer = useSykaTransfer(runnerInput, input.projectData, input.projectName);
 	const dialogActions = useExportDialogActions({
 		videoPath: input.videoPath,
 		videoPlaybackRef: input.videoPlaybackRef,
@@ -95,5 +102,5 @@ export function useEditorExportController(input: Input) {
 		active: status.isLightningExportInProgress,
 	});
 
-	return { dialogActions, status, exportMessage };
+	return { dialogActions, status, exportMessage, sykaTransfer };
 }

@@ -5,82 +5,34 @@ export interface BuiltInWallpaper {
 	publicPath: string;
 }
 
-const IMAGE_FILE_PATTERN = /\.(avif|gif|jpe?g|png|svg|webp)$/i;
 const VIDEO_FILE_PATTERN = /\.(avi|m4v|mkv|mov|mp4|webm)$/i;
 
-export const BUILT_IN_WALLPAPERS: BuiltInWallpaper[] = [
-	createWallpaperEntry("tahoe-light.jpg", "Tahoe Light"),
-	createWallpaperEntry("tahoe-dark.jpg", "Tahoe Dark"),
-	createWallpaperEntry("midnight-8.jpg", "Midnight 8"),
-	createWallpaperEntry("ipad-17-dark.jpg", "iPad 17 Dark"),
-	createWallpaperEntry("ipad-17-light.jpg", "iPad 17 Light"),
-	createWallpaperEntry("sequoia-blue.jpg", "Sequoia Blue"),
-	createWallpaperEntry("sequoia-blue-orange.jpg", "Sequoia Blue Orange"),
-	createWallpaperEntry("ventura.jpg", "Ventura"),
-	createWallpaperEntry("sonoma-clouds.jpg", "Sonoma Clouds"),
-	createWallpaperEntry("sonoma-light.jpg", "Sonoma Light"),
-	createWallpaperEntry("sonoma-dark.jpg", "Sonoma Dark"),
-	createWallpaperEntry("glassmorphism-3.jpg", "Glassmorphism 3"),
-	createWallpaperEntry("glassmorphism-4.jpg", "Glassmorphism 4"),
-	createWallpaperEntry("energy-19.jpg", "Energy 19"),
-	createWallpaperEntry("wallpaper3.jpg", "Wallpaper 3"),
-	createWallpaperEntry("wallpaper4.jpg", "Wallpaper 4"),
-	createWallpaperEntry("cityscape.jpg", "Cityscape"),
-	createWallpaperEntry("levels.jpg", "Levels"),
-	createWallpaperEntry("wallpaper10.jpg", "Wallpaper 10"),
-	createWallpaperEntry("ventura-dark.jpg", "Ventura Dark"),
-	createWallpaperEntry("sonoma-evening.jpg", "Sonoma Evening"),
-	createWallpaperEntry("sonoma-horizon.jpg", "Sonoma Horizon"),
-	createWallpaperEntry("iridescent-9.jpg", "Iridescent 9"),
-	createWallpaperEntry("energy-17.jpg", "Energy 17"),
-	createWallpaperEntry("wispysky.mp4", "Wispy Sky"),
-];
+/**
+ * Syka Recorder ships no bundled wallpaper images: the ones inherited from
+ * Recordly had no documented license. Backgrounds are flat colors, gradients
+ * defined in code, or files the user picks.
+ */
+export const BUILT_IN_WALLPAPERS: BuiltInWallpaper[] = [];
 
-export const WALLPAPER_PATHS = BUILT_IN_WALLPAPERS.map((wallpaper) => wallpaper.publicPath);
-export const WALLPAPER_RELATIVE_PATHS = BUILT_IN_WALLPAPERS.map(
-	(wallpaper) => wallpaper.relativePath,
-);
-export const DEFAULT_WALLPAPER_PATH = "/wallpapers/tahoe-light.jpg";
-export const DEFAULT_WALLPAPER_RELATIVE_PATH = "wallpapers/tahoe-light.jpg";
+/** Default background: Syka's dark canvas color. */
+export const DEFAULT_WALLPAPER_PATH = "#121212";
 
-function safeDecodeFileName(fileName: string) {
-	try {
-		return decodeURIComponent(fileName);
-	} catch {
-		return fileName;
-	}
+const REMOVED_BUNDLED_WALLPAPER_PREFIX = "/wallpapers/";
+
+/** Projects and preferences saved by Recordly may still name a removed bundled wallpaper. */
+export function isRemovedBundledWallpaper(value: unknown): boolean {
+	return typeof value === "string" && value.startsWith(REMOVED_BUNDLED_WALLPAPER_PREFIX);
 }
 
-function getBundledWallpaperFileName(value: string) {
-	if (!value.startsWith("/wallpapers/")) {
-		return null;
+export function normalizeWallpaperValue(value: unknown): string {
+	if (typeof value !== "string" || !value || isRemovedBundledWallpaper(value)) {
+		return DEFAULT_WALLPAPER_PATH;
 	}
-
-	const normalizedValue = value.split(/[?#]/)[0] ?? value;
-	const fileName = normalizedValue.split("/").filter(Boolean).pop();
-	return fileName ? safeDecodeFileName(fileName) : null;
+	return value;
 }
 
 export async function resolveAvailableWallpaperPath(wallpaper: string): Promise<string> {
-	const bundledFileName = getBundledWallpaperFileName(wallpaper);
-	if (
-		!bundledFileName ||
-		typeof window === "undefined" ||
-		!window.electronAPI?.listAssetDirectory
-	) {
-		return wallpaper;
-	}
-
-	try {
-		const result = await window.electronAPI.listAssetDirectory("wallpapers");
-		if (!result.success || !result.files?.length) {
-			return wallpaper;
-		}
-
-		return result.files.includes(bundledFileName) ? wallpaper : DEFAULT_WALLPAPER_PATH;
-	} catch {
-		return wallpaper;
-	}
+	return isRemovedBundledWallpaper(wallpaper) ? DEFAULT_WALLPAPER_PATH : wallpaper;
 }
 
 export function isVideoWallpaperSource(value: string): boolean {
@@ -92,70 +44,6 @@ export function isVideoWallpaperSource(value: string): boolean {
 	return VIDEO_FILE_PATTERN.test(normalizedValue);
 }
 
-function toWallpaperId(fileName: string) {
-	return fileName
-		.replace(/\.[^.]+$/, "")
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "");
-}
-
-function toWallpaperLabel(fileName: string) {
-	const baseName = fileName.replace(/\.[^.]+$/, "").trim();
-	if (!baseName) {
-		return "Wallpaper";
-	}
-
-	return baseName
-		.replace(/[_-]+/g, " ")
-		.replace(/\s+/g, " ")
-		.replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-function createWallpaperEntry(
-	fileName: string,
-	label = toWallpaperLabel(fileName),
-): BuiltInWallpaper {
-	const encodedFileName = encodeURIComponent(fileName);
-	return {
-		id: toWallpaperId(fileName) || `wallpaper-${encodedFileName.toLowerCase()}`,
-		label,
-		relativePath: `wallpapers/${fileName}`,
-		publicPath: `/wallpapers/${encodedFileName}`,
-	};
-}
-
 export async function getAvailableWallpapers(): Promise<BuiltInWallpaper[]> {
-	const fallbackWallpapers = BUILT_IN_WALLPAPERS;
-
-	if (typeof window === "undefined" || !window.electronAPI?.listAssetDirectory) {
-		return fallbackWallpapers;
-	}
-
-	try {
-		const result = await window.electronAPI.listAssetDirectory("wallpapers");
-		if (!result.success || !result.files?.length) {
-			return fallbackWallpapers;
-		}
-
-		const discoveredFiles = new Set(
-			result.files.filter(
-				(fileName) =>
-					IMAGE_FILE_PATTERN.test(fileName) || VIDEO_FILE_PATTERN.test(fileName),
-			),
-		);
-
-		if (discoveredFiles.size === 0) {
-			return fallbackWallpapers;
-		}
-
-		const curatedWallpapers = fallbackWallpapers.filter((wallpaper) =>
-			discoveredFiles.has(wallpaper.relativePath.replace(/^wallpapers\//, "")),
-		);
-
-		return curatedWallpapers.length > 0 ? curatedWallpapers : fallbackWallpapers;
-	} catch {
-		return fallbackWallpapers;
-	}
+	return BUILT_IN_WALLPAPERS;
 }

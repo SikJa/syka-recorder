@@ -61,11 +61,27 @@ for (const [description, session, error, expected] of [
 	});
 }
 
-it("does not permit recording when Supabase is unconfigured", async () => {
+it("does not invent an authenticated session when Supabase is unconfigured", async () => {
 	vi.stubEnv("VITE_SUPABASE_URL", "");
 	const { hasRecordlySession } = await import("./recordlyAuth");
 	await expect(hasRecordlySession()).resolves.toBe(false);
 	expect(getSession).not.toHaveBeenCalled();
+});
+
+it("permits local recording without a configured account service", async () => {
+	vi.stubEnv("VITE_SUPABASE_URL", "");
+	const { canStartLocalRecording, hasRecordlySession } = await import("./recordlyAuth");
+	await expect(canStartLocalRecording()).resolves.toBe(true);
+	await expect(hasRecordlySession()).resolves.toBe(false);
+	expect(getSession).not.toHaveBeenCalled();
+});
+
+it("still requires a real session when an account service is configured", async () => {
+	getSession.mockResolvedValue({ data: { session: null }, error: null });
+	const { canStartLocalRecording } = await import("./recordlyAuth");
+	await expect(canStartLocalRecording()).resolves.toBe(false);
+	getSession.mockResolvedValue({ data: { session: { user: { id: "user-1", is_anonymous: false } } }, error: null });
+	await expect(canStartLocalRecording()).resolves.toBe(true);
 });
 
 it("signs out through Supabase", async () => {
@@ -146,7 +162,7 @@ for (const dev of [true, false]) {
 			options: {
 				emailRedirectTo: dev
 					? "http://127.0.0.1:43821/auth/callback"
-					: "recordly://auth/callback",
+					: "syka-recorder://auth/callback",
 				shouldCreateUser: true,
 			},
 		});

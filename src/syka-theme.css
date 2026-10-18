@@ -1,0 +1,60 @@
+/*
+ * Syka Studio identity mapped onto HeroUI's theme tokens.
+ * Values follow Syka Studio's apps/web/src/index.css (dark default, #008CFF
+ * accent, 6px radius, hairline white-alpha borders). Unlayered so it wins over
+ * HeroUI's @layer base defaults without touching component styles.
+ */
+
+:root,
+.light,
+[data-theme="light"] {
+	--radius: 6px;
+	--field-radius: 6px;
+
+	--accent: #008cff;
+	--accent-foreground: hsl(0 0% 98%);
+	--focus: #008cff;
+
+	--background: hsl(0 0% 100%);
+	--foreground: hsl(240 5% 9%);
+	--surface: #f5f6f8;
+	--surface-secondary: #eef0f3;
+	--surface-tertiary: #e2e6ec;
+	--overlay: hsl(0 0% 100%);
+	--muted: #5f6775;
+	--default: #eef0f3;
+	--default-foreground: hsl(240 5% 20%);
+	--field-background: #f0f2f5;
+	--field-foreground: hsl(240 5% 9%);
+	--border: #dce0e6;
+	--separator: #e7eaee;
+	--danger: hsl(0 79% 54%);
+	--success: hsl(162 66% 29%);
+	--success-foreground: hsl(0 0% 100%);
+
+	/* Surfaces separate by tone, not by drop shadows. */
+	--surface-shadow: none;
+	--field-shadow: none;
+}
+
+.dark,
+[data-theme="dark"] {
+	--background: hsl(0 0% 7%);
+	--foreground: hsl(0 0% 95%);
+	--surface: hsl(0 0% 9%);
+	--surface-secondary: hsl(0 0% 12%);
+	--surface-tertiary: hsl(0 0% 15%);
+	--overlay: hsl(0 0% 9%);
+	--muted: hsl(0 0% 95% / 0.64);
+	--default: hsl(0 0% 100% / 0.06);
+	--default-foreground: hsl(0 0% 95%);
+	--field-background: hsl(0 0% 100% / 0.06);
+	--field-foreground: hsl(0 0% 95%);
+	--border: hsl(0 0% 100% / 0.06);
+	--separator: hsl(0 0% 100% / 0.03);
+	--danger: hsl(0 79% 54%);
+	--success: hsl(162 66% 29%);
+	--success-foreground: hsl(162 84% 89%);
+	--surface-shadow: none;
+	--field-shadow: none;
+}
