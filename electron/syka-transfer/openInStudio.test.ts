@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ message: vi.fn(), picker: vi.fn(), external: vi.fn(), validate: vi.fn() }));
 vi.mock("electron", () => ({ app: { getPath: () => "C:\\Recorder\\Recorder.exe" }, BrowserWindow: {}, dialog: { showMessageBox: mocks.message, showOpenDialog: mocks.picker }, shell: { openExternal: mocks.external } }));
 vi.mock("node:child_process", () => ({ execFile: (_file: string, _args: string[], _opts: unknown, done: (error: Error) => void) => done(new Error("not running")) }));
@@ -6,7 +6,20 @@ vi.mock("../appSettingsStore", () => ({ readAppSetting: () => null, writeAppSett
 vi.mock("./studioInstallation", () => ({ studioInstallation: async () => null, installedStudioCandidates: async () => [] }));
 vi.mock("./validateStudioProject", () => ({ validateStudioProject: mocks.validate }));
 import { openInStudio, STUDIO_DOWNLOAD_URL } from "./openInStudio";
-beforeEach(() => vi.clearAllMocks());
+const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+beforeEach(() => {
+	vi.clearAllMocks();
+	Object.defineProperty(process, "platform", { value: "win32" });
+});
+afterEach(() => Object.defineProperty(process, "platform", platform));
+
+it("explains manual opening on unsupported platforms without launching anything", async () => {
+	Object.defineProperty(process, "platform", { value: "linux" });
+	await expect(openInStudio("/projects/demo", null)).rejects.toThrow("desde Syka Studio en este sistema");
+	expect(mocks.message).not.toHaveBeenCalled();
+	expect(mocks.picker).not.toHaveBeenCalled();
+	expect(mocks.external).not.toHaveBeenCalled();
+});
 it("offers download without losing the saved project or opening an executable picker", async () => {
 	mocks.message.mockResolvedValue({ response: 0 });
 	expect(await openInStudio("C:\\Projects\\Demo", null)).toEqual({ success: false, canceled: true });
