@@ -1,8 +1,5 @@
 ﻿<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/media/readme-orb-dark.webp" />
-    <img src="docs/media/readme-orb-light.webp" width="116" height="116" alt="Orbe animado de Syka Recorder" />
-  </picture>
+  <img src="public/app-icons/syka-recorder-512.png" width="116" height="116" alt="Syka Recorder: cinta orbital negra con centro bordó" />
 </p>
 <h1 align="center">Syka Recorder</h1>
 <p align="center"><b>Grabá tu pantalla. Explicá tu idea. Seguí en Syka Studio.</b></p>

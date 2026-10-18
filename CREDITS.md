@@ -13,6 +13,10 @@
 
 ## Componentes / Components
 
+El ícono propio de Recorder, **Cinta**, fue seleccionado y dirigido por SikJa, con generación asistida de imágenes. El máster y su proceso están en [branding/syka-recorder](branding/syka-recorder). Conservamos el crédito de thinking-orbs por el orbe previo y su código incluido.
+
+Recorder's **Cinta** icon was selected and art-directed by SikJa with assisted image generation. Its master and process are in [branding/syka-recorder](branding/syka-recorder). The earlier orb and retained implementation keep their thinking-orbs attribution.
+
 | Proyecto | Uso / Purpose | Licencia / License |
 | --- | --- | --- |
 | [Whispera](https://github.com/SikJa/Whispera) | Motor de anotaciones durante la captura / Live drawing engine | [MIT](src/components/launch/drawing/LICENSE-Whispera.txt) |

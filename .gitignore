@@ -50,6 +50,7 @@ gpu-export-probe.mp4
 test-results/
 playwright-report/
 output/playwright/
+output/logo-concepts/
 
 # Local handoffs and machine-specific QA notes (keep on disk, out of publication)
 /HANDOFF-*.md

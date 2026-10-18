@@ -12,9 +12,10 @@
 		"url": "https://github.com/SikJa/syka-recorder/issues"
 	},
 	"private": true,
-	"version": "1.4.0",
+	"version": "1.4.1",
 	"type": "module",
 	"scripts": {
+		"build:brand-icons": "node scripts/build-brand-icons.mjs",
 		"dev": "vite --config vite.config.ts",
 		"postinstall": "node scripts/postinstall.mjs",
 		"build": "npm run build:platform-native-helpers && tsc && vite build --config vite.config.ts && npm run normalize:electron-main-cjs && npm run smoke:electron-main-cjs && electron-builder",

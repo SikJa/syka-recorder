@@ -2,7 +2,7 @@ import { ChatCircle } from "@phosphor-icons/react";
 import { AccountAvatar } from "@/components/ui/account-avatar";
 import { Button } from "@/components/ui/button";
 import { File, GearSix, House, Plus } from "@/components/ui/icons";
-import { SykaBrandOrb } from "@/components/ui/syka-brand-orb";
+import { SykaBrandIcon } from "@/components/ui/syka-brand-icon";
 import { useScopedT } from "@/contexts/I18nContext";
 import { openExternalLink } from "../TutorialHelp";
 import { FolderRow } from "./FolderRow";
@@ -48,7 +48,7 @@ export function DashboardSidebar({
 				className="flex w-48 shrink-0 flex-col bg-transparent px-4 pb-5 pt-12 lg:w-56"
 			>
 				<div className="mb-4 flex min-h-10 items-center gap-2.5 px-3">
-					<SykaBrandOrb />
+					<SykaBrandIcon />
 					<div className="flex min-w-0 flex-col">
 						<span className="text-[15px] font-semibold tracking-tight">
 							{tc("app.name", "Syka Recorder")}
