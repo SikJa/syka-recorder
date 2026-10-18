@@ -40,7 +40,9 @@ No Recordly account required. Local recordings and projects. Recorder works on i
 <p align="center"><img src="docs/media/transfer-dialog.png" width="760" alt="Save and open in Syka Studio options" /></p>
 <p align="center"><img src="docs/media/studio-project.png" width="100%" alt="The same composition open in Syka Studio" /></p>
 
-**[Watch the Recorder-to-Studio demo](https://github.com/SikJa/syka-recorder/releases/latest/download/Syka-Recorder-demo.mp4)** · [Transfer details](docs/studio-transfer.md)
+<p align="center"><a href="https://github.com/SikJa/syka-recorder/releases/latest/download/Syka-Recorder-demo.mp4"><img src="docs/media/demo-preview.gif" width="768" alt="Real demo: MacOS Style background in Recorder and the same project edited in Studio" /></a></p>
+
+**[Watch the full demo · 37 seconds](https://github.com/SikJa/syka-recorder/releases/latest/download/Syka-Recorder-demo.mp4)** · [Demo validation](docs/demo.md) · [Transfer details](docs/studio-transfer.md)
 
 If Studio is missing, Recorder offers to **download it**, **locate an existing installation**, or **continue later**. Your project is already saved. Recorder discovers standard installations and Studio version folders; normal Studio upgrades do not depend on the developer's computer paths.
 

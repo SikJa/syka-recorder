@@ -40,7 +40,9 @@ Sin cuenta de Recordly. Grabaciones y proyectos locales. Podés usar Recorder so
 <p align="center"><img src="docs/media/transfer-dialog.png" width="760" alt="Opciones para guardar el proyecto y abrirlo en Syka Studio" /></p>
 <p align="center"><img src="docs/media/studio-project.png" width="100%" alt="La misma composición abierta en Syka Studio" /></p>
 
-**[Ver la demo de Recorder a Studio](https://github.com/SikJa/syka-recorder/releases/latest/download/Syka-Recorder-demo.mp4)** · [Cómo funciona la transferencia](docs/studio-transfer.md)
+<p align="center"><a href="https://github.com/SikJa/syka-recorder/releases/latest/download/Syka-Recorder-demo.mp4"><img src="docs/media/demo-preview.gif" width="768" alt="Demo real: fondo MacOS Style en Recorder y el mismo proyecto editado en Studio" /></a></p>
+
+**[Ver la demo completa · 37 segundos](https://github.com/SikJa/syka-recorder/releases/latest/download/Syka-Recorder-demo.mp4)** · [Qué se probó](docs/demo.md) · [Cómo funciona la transferencia](docs/studio-transfer.md)
 
 Si no tenés Studio, aparece un aviso para **descargarlo**, **buscar una instalación existente** o **seguir después**. El proyecto ya queda guardado. Recorder encuentra las instalaciones habituales y las carpetas de versión de Studio; una actualización normal de Studio no depende de rutas de la computadora del desarrollador.
 
