@@ -1098,7 +1098,7 @@ export class FrameRenderer {
 			wallpaper = await this.resolveWallpaperForExport(this.config.wallpaper);
 		} catch (error) {
 			const label = decodeURIComponent(
-				this.config.wallpaper.split(/[\/]/).pop()?.split("?")[0] ?? "",
+				this.config.wallpaper.split(/[/]/).pop()?.split("?")[0] ?? "",
 			);
 			throw new Error(
 				`No se pudo cargar el fondo${label ? ` "${label}"` : ""} para exportar: ${
