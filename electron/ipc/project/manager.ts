@@ -8,6 +8,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { app } from "electron";
 import { RECORDINGS_DIR, USER_DATA_PATH } from "../../appPaths";
+import { readAppSetting, writeAppSetting } from "../../appSettingsStore";
 import { isSupportedLocalMediaPath } from "../../mediaTypes";
 import {
 	LEGACY_PROJECT_FILE_EXTENSIONS,
@@ -54,7 +55,39 @@ export function isPathInsideDirectory(candidatePath: string, directoryPath: stri
 	);
 }
 
+const PINNED_MEDIA_SETTING = "pinnedUserMediaPaths";
+const MAX_PINNED_MEDIA = 50;
+let pinnedMediaLoaded = false;
+
+function readPinnedMedia(): string[] {
+	const stored = readAppSetting(PINNED_MEDIA_SETTING);
+	return Array.isArray(stored)
+		? stored.filter((entry): entry is string => typeof entry === "string")
+		: [];
+}
+
+/** Files the user picked (backgrounds, audio) stay readable across projects and restarts. */
+function restorePinnedMedia() {
+	if (pinnedMediaLoaded) return;
+	pinnedMediaLoaded = true;
+	for (const entry of readPinnedMedia()) approvedLocalReadPaths.add(normalizePath(entry));
+}
+
+export function pinApprovedLocalReadPath(filePath: string) {
+	if (!isSupportedLocalMediaPath(filePath)) return;
+	restorePinnedMedia();
+	const normalized = normalizePath(filePath);
+	approvedLocalReadPaths.add(normalized);
+	try {
+		const next = [normalized, ...readPinnedMedia().filter((entry) => entry !== normalized)];
+		writeAppSetting(PINNED_MEDIA_SETTING, next.slice(0, MAX_PINNED_MEDIA));
+	} catch {
+		/* Persisting is a convenience; the approval for this session still applies. */
+	}
+}
+
 export function isAllowedLocalReadPath(candidatePath: string) {
+	restorePinnedMedia();
 	const allowedPrefixes = [
 		RECORDINGS_DIR,
 		USER_DATA_PATH,
@@ -177,6 +210,8 @@ export async function replaceApprovedSessionLocalReadPaths(
 	}
 
 	approvedLocalReadPaths.clear();
+	// Backgrounds the user picked outlive a change of project or recording.
+	for (const entry of readPinnedMedia()) nextApprovedPaths.add(normalizePath(entry));
 	for (const approvedPath of nextApprovedPaths) {
 		approvedLocalReadPaths.add(approvedPath);
 	}

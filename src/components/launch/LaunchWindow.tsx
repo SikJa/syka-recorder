@@ -66,6 +66,7 @@ function LaunchWindowContent() {
 		paused,
 		finalizing,
 		countdownActive,
+		starting,
 		toggleRecording,
 		pauseRecording,
 		resumeRecording,
@@ -415,7 +416,8 @@ function LaunchWindowContent() {
 				size="icon"
 				className={`${styles.electronNoDrag} ${styles.compactAction} ${styles.recordAction}`}
 				onClick={hasSelectedSource ? toggleRecording : () => void handlePickOnScreen()}
-				disabled={countdownActive || isPickerPending || !sourceReady}
+				disabled={countdownActive || starting || isPickerPending || !sourceReady}
+				aria-busy={starting}
 				title={t("recording.record")}
 			>
 				<RecordIcon className="size-5" />

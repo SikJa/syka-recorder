@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
 	loadProject: vi.fn(),
 	approve: vi.fn(),
 	clearProject: vi.fn(),
+	pin: vi.fn(),
 }));
 vi.mock("electron", () => ({
 	dialog: { showOpenDialog: mocks.open },
@@ -15,6 +16,7 @@ vi.mock("../constants", () => ({ PROJECT_FILE_EXTENSION: "recordly", LEGACY_PROJ
 vi.mock("../project/manager", () => ({
 	hasProjectFileExtension: (value: string) => value.endsWith(".recordly"),
 	loadProjectFromPath: mocks.loadProject,
+	pinApprovedLocalReadPath: mocks.pin,
 }));
 vi.mock("../state", () => ({ setCurrentProjectPath: mocks.clearProject }));
 vi.mock("../utils", () => ({ approveUserPath: mocks.approve, getRecordingsDir: async () => "B:/recordings" }));
@@ -32,6 +34,8 @@ it("keeps the active project trusted when picking a background or webcam video",
 	const result = await mocks.handlers.get("open-video-file-picker")!({});
 	expect(result).toMatchObject({ success: true, kind: "media", path: "B:/background.mp4" });
 	expect(mocks.approve).toHaveBeenCalledWith("B:/background.mp4");
+	// The pick must survive opening another recording or restarting the app.
+	expect(mocks.pin).toHaveBeenCalledWith("B:/background.mp4");
 	expect(mocks.clearProject).not.toHaveBeenCalled();
 	expect(mocks.loadProject).not.toHaveBeenCalled();
 });

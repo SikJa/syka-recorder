@@ -410,9 +410,11 @@ export function registerRecordingHandlers(
 		async (_, source: SelectedSource, options?: NativeMacRecordingOptions) => {
 			// Protect the HUD at the capture boundary, before the renderer publishes recording state.
 			beginHudCaptureProtection();
+			const startPerf = Date.now();
 			const visibleWindowBounds = source.id?.startsWith("window:")
 				? await bringSelectedWindowForward(source)
 				: null;
+			console.log(`[PERF:MAIN] start-native: window raised in ${Date.now() - startPerf}ms`);
 
 			// Windows native capture path
 			if (process.platform === "win32") {
@@ -594,7 +596,9 @@ export function registerRecordingHandlers(
 						setWindowsCaptureOutputBuffer(captureOutput);
 					});
 
+					console.log(`[PERF:MAIN] start-native: helper spawned at +${Date.now() - startPerf}ms`);
 					await waitForWindowsCaptureStart(wcProc);
+					console.log(`[PERF:MAIN] start-native: capture started at +${Date.now() - startPerf}ms`);
 					const microphoneFallbackRequired =
 						browserMicFallbackRequested ||
 						shouldUseWindowsBrowserMicrophoneFallback(captureOutput, options);

@@ -1,7 +1,11 @@
 import path from "node:path";
 import { dialog, ipcMain } from "electron";
 import { LEGACY_PROJECT_FILE_EXTENSIONS, PROJECT_FILE_EXTENSION } from "../constants";
-import { hasProjectFileExtension, loadProjectFromPath } from "../project/manager";
+import {
+	hasProjectFileExtension,
+	loadProjectFromPath,
+	pinApprovedLocalReadPath,
+} from "../project/manager";
 import { approveUserPath, getRecordingsDir } from "../utils";
 
 const VIDEO_FILE_EXTENSIONS = ["webm", "mp4", "mov", "avi", "mkv"];
@@ -51,6 +55,7 @@ export function registerMediaPickerHandlers() {
 			}
 
 			approveUserPath(selectedPath);
+			pinApprovedLocalReadPath(selectedPath);
 			// Picking an asset must not replace the active project. Source import
 			// updates the recording session only when accepting a new primary video.
 			return {

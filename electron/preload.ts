@@ -204,6 +204,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 	beginSykaTransfer: () => ipcRenderer.invoke("syka-transfer-begin"),
 	openSykaTransferInStudio: (manifestPath: string) => ipcRenderer.invoke("syka-transfer-open-studio", manifestPath),
+	openSykaProjectInStudio: (projectPath: string) => ipcRenderer.invoke("syka-transfer-open-project", projectPath),
 	saveSykaTransfer: (request: import("../src/lib/sykaExport/contract").SaveTransferRequest) => ipcRenderer.invoke("syka-transfer-save", request),
 	cancelSykaTransfer: (operationId: string) => ipcRenderer.invoke("syka-transfer-cancel", operationId),
 	hudOverlaySetIgnoreMouse: (ignore: boolean) => {

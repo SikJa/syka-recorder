@@ -3,6 +3,7 @@ import { ProjectFolderChips } from "./ProjectFolderChips";
 import { RawThumbnail } from "./RawRecordings";
 import { AccountAvatar } from "@/components/ui/account-avatar";
 import { Dropdown } from "@heroui/react";
+import { toast } from "@/components/ui/toast";
 import { Check, DotsThree, FolderSimple, Plus } from "@/components/ui/icons";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -260,6 +261,27 @@ export function ProjectCard({
 										Rename
 									</Dropdown.Item>
 
+									{!entry.rawSource && (
+										<Dropdown.Item
+											id="open-studio"
+											isDisabled={busy}
+											onAction={() =>
+												void run(async () => {
+													const result =
+														await window.electronAPI.openSykaProjectInStudio(
+															entry.path,
+														);
+													if (!result.success && !result.canceled)
+														toast.error(
+															result.error ||
+																"No se pudo abrir Syka Studio.",
+														);
+												})
+											}
+										>
+											Abrir en Syka Studio
+										</Dropdown.Item>
+									)}
 									<Dropdown.Item
 										aria-label={
 											entry.rawSource

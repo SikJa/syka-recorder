@@ -220,6 +220,7 @@ interface Window {
 	electronAPI: {
 		beginSykaTransfer: () => Promise<{ operationId?: string; canceled?: boolean }>;
 		openSykaTransferInStudio: (manifestPath: string) => Promise<import("../src/lib/sykaExport/contract").TransferResult>;
+		openSykaProjectInStudio: (projectPath: string) => Promise<import("../src/lib/sykaExport/contract").TransferResult>;
 		saveSykaTransfer: (request: import("../src/lib/sykaExport/contract").SaveTransferRequest) => Promise<import("../src/lib/sykaExport/contract").TransferResult>;
 		cancelSykaTransfer: (operationId: string) => Promise<void>;
 		hudOverlaySetIgnoreMouse: (ignore: boolean) => void;

@@ -485,7 +485,19 @@ export class FrameRenderer {
 	}
 
 	private async setupBackground(): Promise<void> {
-		const wallpaper = await this.resolveWallpaperForExport(this.config.wallpaper);
+		let wallpaper: string;
+		try {
+			wallpaper = await this.resolveWallpaperForExport(this.config.wallpaper);
+		} catch (error) {
+			const label = decodeURIComponent(
+				this.config.wallpaper.split(/[\/]/).pop()?.split("?")[0] ?? "",
+			);
+			throw new Error(
+				`No se pudo cargar el fondo${label ? ` "${label}"` : ""} para exportar: ${
+					error instanceof Error ? error.message : String(error)
+				}. Elegí otro fondo en Escena o volvé a seleccionar el archivo.`,
+			);
+		}
 
 		// Create background canvas for separate rendering (not affected by zoom)
 		const bgCanvas = document.createElement("canvas");

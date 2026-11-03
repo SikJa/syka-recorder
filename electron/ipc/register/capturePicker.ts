@@ -85,8 +85,20 @@ export function registerCapturePickerHandlers({
 		if (process.platform === "linux") return pickSourceList();
 
 		finishPick(null);
-		// List windows before the overlays cover them.
-		pickableWindows = Promise.resolve(await listCapturePickerWindows());
+		// Window geometry is read before the overlays cover the windows. On Windows
+		// this spawns PowerShell, so the overlays open right away and wait for the
+		// list only when they need it; macOS is native and keeps its early errors.
+		let listingFailure: { error: unknown } | null = null;
+		if (process.platform === "win32") {
+			pickableWindows = listCapturePickerWindows();
+			// A failed detection closes the overlays and surfaces the error below.
+			pickableWindows.catch((error) => {
+				listingFailure = { error };
+				finishPick(null);
+			});
+		} else {
+			pickableWindows = Promise.resolve(await listCapturePickerWindows());
+		}
 		if (isCursorCaptureActive) return { success: false, canceled: true };
 		const pick = await new Promise<CapturePick | null>((resolve) => {
 			resolvePendingPick = resolve;
@@ -94,6 +106,7 @@ export function registerCapturePickerHandlers({
 			createCapturePickerWindows(() => finishPick(null));
 		});
 		closeCapturePickerWindows();
+		if (listingFailure) throw (listingFailure as { error: unknown }).error;
 		if (!pick || isCursorCaptureActive) {
 			return { success: false, canceled: true };
 		}
