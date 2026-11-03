@@ -123,6 +123,7 @@ type UseScreenRecorderReturn = {
 	paused: boolean;
 	finalizing: boolean;
 	countdownActive: boolean;
+	starting: boolean;
 	toggleRecording: () => void;
 	pauseRecording: () => void;
 	resumeRecording: () => void;
@@ -1121,6 +1122,16 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		recordingSessionTimestamp.current = Date.now();
 		resetRecordingClock(recordingSessionTimestamp.current);
+		// The native-capture probe does not depend on the webcam; overlap the two.
+		const nativeWindowsProbe =
+			platform === "win32" &&
+			shouldUseNativeWindowsCaptureForSource(selectedSource) &&
+			typeof window.electronAPI.isNativeWindowsCaptureAvailable === "function"
+				? window.electronAPI.isNativeWindowsCaptureAvailable().then(
+						(result) => ({ result }),
+						(error: unknown) => ({ error }),
+					)
+				: null;
 		await prepareWebcamRecorder();
 
 		const useNativeMacScreenCapture =
@@ -1131,14 +1142,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			typeof window.electronAPI.startNativeScreenRecording === "function";
 
 		let useNativeWindowsCapture = false;
-		if (
-			platform === "win32" &&
-			shouldUseNativeWindowsCaptureForSource(selectedSource) &&
-			typeof window.electronAPI.isNativeWindowsCaptureAvailable === "function"
-		) {
+		if (nativeWindowsProbe) {
 			try {
-				const nativeWindowsResult =
-					await window.electronAPI.isNativeWindowsCaptureAvailable();
+				const probed = await nativeWindowsProbe;
+				if ("error" in probed) throw probed.error;
+				const nativeWindowsResult = probed.result;
 				useNativeWindowsCapture = nativeWindowsResult.available;
 				if (!useNativeWindowsCapture && !hasShownNativeWindowsFallbackToast.current) {
 					void logNativeCaptureDiagnostics("is-native-windows-capture-available");
@@ -2461,6 +2469,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		paused,
 		finalizing,
 		countdownActive,
+		starting,
 		toggleRecording,
 		pauseRecording,
 		resumeRecording,

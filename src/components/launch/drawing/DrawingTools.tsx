@@ -22,6 +22,7 @@ import {
 } from "@phosphor-icons/react";
 import type { Tool } from "./screen-annotations";
 import type { RecordingDrawing } from "./useRecordingDrawing";
+import { ColorPicker } from "./ColorPicker";
 import styles from "./DrawingTools.module.css";
 
 export const DRAWING_TOOLS: Record<
@@ -104,6 +105,7 @@ export function DrawingTools({
 	anchor: RefObject<HTMLDivElement | null>;
 }) {
 	const [group, setGroup] = useState<"stroke" | "shape" | null>(null);
+	const [customColor, setCustomColor] = useState(false);
 	const panel = useRef<HTMLDivElement>(null);
 	const [position, setPosition] = useState({ x: 8, y: 8 });
 	useLayoutEffect(() => {
@@ -245,16 +247,18 @@ export function DrawingTools({
 								onClick={() => d.setColor(color)}
 							/>
 						))}
-						<label className={styles.customColor} title="Color personalizado">
-							<input
-								type="color"
-								aria-label="Color personalizado"
-								value={d.color}
-								onChange={(e) => d.setColor(e.target.value)}
-							/>
-							<span>+</span>
-						</label>
+						<button
+							type="button"
+							title="Color personalizado"
+							aria-label="Color personalizado"
+							aria-expanded={customColor}
+							className={styles.customColor}
+							onClick={() => setCustomColor(!customColor)}
+						>
+							+
+						</button>
 					</div>
+					{customColor && <ColorPicker value={d.color} onChange={d.setColor} />}
 					<div className={styles.widths}>
 						<span>Grosor</span>
 						{[2, 3, 5, 8].map((width) => (

@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { access } from "node:fs/promises";
 import path from "node:path";
 import { BrowserWindow, dialog, ipcMain } from "electron";
+import { readAppSetting, writeAppSetting } from "../../appSettingsStore";
 import type { SaveTransferRequest } from "../../../src/lib/sykaExport/contract";
 import { openInStudio } from "../../syka-transfer/openInStudio";
 import { writeTransferPackage } from "../../syka-transfer/package";
@@ -8,12 +10,66 @@ import { isOwnedExportPath } from "../export/exportStream";
 import { resolveApprovedLocalMediaPath } from "../project/manager";
 import { currentProjectPath } from "../state";
 
+const TRANSFERS_SETTING = "syka.studioTransfers";
+
+function readSavedTransfers(): Record<string, string> {
+	const stored = readAppSetting(TRANSFERS_SETTING);
+	return stored && typeof stored === "object" && !Array.isArray(stored)
+		? (stored as Record<string, string>)
+		: {};
+}
+
+/** Remembers the last Studio package of a project so it can be reopened from Home. */
+function rememberTransfer(projectPath: string | null, manifestPath: string) {
+	if (!projectPath) return;
+	try {
+		writeAppSetting(TRANSFERS_SETTING, {
+			...readSavedTransfers(),
+			[path.normalize(projectPath).toLowerCase()]: manifestPath,
+		});
+	} catch {
+		/* Remembering is a convenience; the package itself is already saved. */
+	}
+}
+
 export function registerSykaTransferHandlers() {
 	const completed = new Map<string, number>();
 	const opening = new Set<number>();
 	ipcMain.handle("syka-transfer-open-studio", async (event, manifestPath: string) => {
 		if (completed.get(manifestPath) !== event.sender.id)
 			return { success: false, error: "Volvé a guardar el proyecto para abrirlo en Studio." };
+		if (opening.has(event.sender.id))
+			return { success: false, error: "Studio ya se está abriendo." };
+		opening.add(event.sender.id);
+		try {
+			return await openInStudio(
+				path.dirname(manifestPath),
+				BrowserWindow.fromWebContents(event.sender),
+			);
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : String(error),
+			};
+		} finally {
+			opening.delete(event.sender.id);
+		}
+	});
+	ipcMain.handle("syka-transfer-open-project", async (event, projectPath: string) => {
+		if (typeof projectPath !== "string" || !projectPath)
+			return { success: false, error: "Proyecto inválido." };
+		const manifestPath = readSavedTransfers()[path.normalize(projectPath).toLowerCase()];
+		const exists = manifestPath
+			? await access(manifestPath).then(
+					() => true,
+					() => false,
+				)
+			: false;
+		if (!manifestPath || !exists)
+			return {
+				success: false,
+				error: "Este proyecto todavía no tiene un paquete de Studio. Abrilo y tocá Editar en Syka para generarlo.",
+			};
 		if (opening.has(event.sender.id))
 			return { success: false, error: "Studio ya se está abriendo." };
 		opening.add(event.sender.id);
@@ -118,6 +174,7 @@ export function registerSykaTransferHandlers() {
 				signal: job.abort.signal,
 			});
 			completed.set(savedPath, event.sender.id);
+			rememberTransfer(job.originalProjectPath, savedPath);
 			if (completed.size > 64) completed.delete(completed.keys().next().value!);
 			return { success: true, path: savedPath };
 		} catch (error) {
