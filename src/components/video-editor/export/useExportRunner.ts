@@ -30,6 +30,8 @@ export type ExportRunOptions = {
 	outputPath?: string;
 	onProgress?: (progress: ExportProgress) => void;
 	onSettled?: (outcome: ExportOutcome) => void;
+	/** The caller reports the result itself (the Studio transfer dialog). */
+	quiet?: boolean;
 };
 
 export function useExportRunner(input: ExportRunnerInput) {
@@ -439,7 +441,9 @@ export function useExportRunner(input: ExportRunnerInput) {
 								result.blob,
 								fileName,
 								options?.outputPath ??
-									(smokeExportConfig.enabled ? smokeExportConfig.outputPath : null),
+									(smokeExportConfig.enabled
+										? smokeExportConfig.outputPath
+										: null),
 								sidecarForThisExport,
 							);
 							if (exportWasCancelled()) {
@@ -498,7 +502,7 @@ export function useExportRunner(input: ExportRunnerInput) {
 									`[smoke-export] Completed in ${Math.round(performance.now() - smokeExportStartedAt)}ms (${saveResult.path})`,
 								);
 							}
-							showExportSuccessToast(saveResult.path);
+							if (!options?.quiet) showExportSuccessToast(saveResult.path);
 							setExportedFilePath(saveResult.path);
 							options?.onSettled?.({ success: true, path: saveResult.path });
 							if (smokeExportConfig.enabled) {
@@ -557,7 +561,10 @@ export function useExportRunner(input: ExportRunnerInput) {
 								metrics: result.metrics,
 							});
 						}
-						options?.onSettled?.({ success: false, error: result.error || "Export failed" });
+						options?.onSettled?.({
+							success: false,
+							error: result.error || "Export failed",
+						});
 						setExportError(result.error || "Export failed");
 						showExportErrorToast(result.error || "Export failed");
 						keepExportDialogOpen = options?.destination !== "share";

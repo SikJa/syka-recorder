@@ -11,10 +11,10 @@ import {
 import { useScopedT } from "@/contexts/I18nContext";
 import { Button, Separator, Tooltip } from "@heroui/react";
 import styles from "./LaunchWindow.module.css";
-import type { ReactNode } from 'react';
+import type { ReactNode } from "react";
 
 interface RecordingControlsProps {
-  drawingButton?: ReactNode;
+	drawingButton?: ReactNode;
 	onHome: () => void;
 	paused: boolean;
 	microphoneEnabled: boolean;
@@ -27,7 +27,7 @@ interface RecordingControlsProps {
 	formatTime: (seconds: number) => string;
 }
 export function RecordingControls({
-  drawingButton,
+	drawingButton,
 	onHome,
 	paused,
 	microphoneEnabled,
@@ -93,11 +93,14 @@ export function RecordingControls({
 					onPress={onPauseResume}
 					aria-label={paused ? t("recording.resume") : t("recording.pause")}
 				>
-					{paused ? (
-						<PlayIcon weight="fill" className="size-4" />
-					) : (
-						<PauseIcon weight="fill" className="size-4" />
-					)}
+					<span
+						className="t-icon-swap"
+						data-state={paused ? "b" : "a"}
+						aria-hidden="true"
+					>
+						<PauseIcon weight="fill" className="t-icon size-4" data-icon="a" />
+						<PlayIcon weight="fill" className="t-icon size-4" data-icon="b" />
+					</span>
 				</Button>
 				<Tooltip.Content>
 					{paused ? t("recording.resume") : t("recording.pause")}

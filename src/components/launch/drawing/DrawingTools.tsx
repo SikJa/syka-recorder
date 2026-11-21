@@ -29,6 +29,7 @@ import {
 } from "@phosphor-icons/react";
 import type { Tool } from "./screen-annotations";
 import type { RecordingDrawing } from "./useRecordingDrawing";
+import { useDropdownPresence } from "@/components/ui/motion";
 import { ColorPicker } from "./ColorPicker";
 import { anchoredPanelPosition, clampPanelPosition, type PanelPoint } from "./panelPosition";
 import styles from "./DrawingTools.module.css";
@@ -160,7 +161,14 @@ export function DrawingTools({
 	useLayoutEffect(() => {
 		if (!d.panel) setGroup(null);
 	}, [d.panel]);
-	if (!d.panel || d.compact) return null;
+	// Opens from the pencil and closes softly instead of vanishing.
+	const presence = useDropdownPresence(d.panel && !d.compact);
+	if (!presence.mounted) return null;
+	const anchorRect = anchor.current?.getBoundingClientRect();
+	const origin =
+		!placedPosition && anchorRect && position.y < anchorRect.top
+			? "bottom-center"
+			: "top-center";
 	// The heading is the drag handle. data-hud-drag-handle makes the native
 	// input shape cover the whole window during the gesture, so the panel is
 	// never clipped to its previous bounds while it moves.
@@ -218,7 +226,8 @@ export function DrawingTools({
 		<div
 			ref={panel}
 			data-hud-interactive
-			className={styles.panel}
+			className={`${styles.panel} ${presence.className}`}
+			data-origin={origin}
 			style={{ left: position.x, top: position.y }}
 			role="region"
 			aria-label="Herramientas de dibujo"

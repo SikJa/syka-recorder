@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { TextSwap } from "@/components/ui/motion";
 import { toast } from "@/components/ui/toast";
 import type { McpServerStatus } from "@/lib/mcpBridge/contract";
 import { useScopedT } from "../../contexts/I18nContext";
@@ -71,7 +72,11 @@ export function McpServerSettings() {
 								className="h-6 shrink-0 px-2 text-[11px]"
 								onClick={() => void copy()}
 							>
-								{copied ? t("mcp.copied", "Copied") : t("mcp.copy", "Copy")}
+								<TextSwap
+									text={
+										copied ? t("mcp.copied", "Copied") : t("mcp.copy", "Copy")
+									}
+								/>
 							</Button>
 						</span>
 					)}

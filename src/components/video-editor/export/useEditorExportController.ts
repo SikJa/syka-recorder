@@ -99,7 +99,13 @@ export function useEditorExportController(input: Input) {
 								encodingMode: input.settings.exportEncodingMode,
 								mp4FrameRate: input.settings.mp4FrameRate,
 							},
-							{ destination: "download", outputPath, onProgress, onSettled: settle },
+							{
+								destination: "download",
+								outputPath,
+								onProgress,
+								onSettled: settle,
+								quiet: true,
+							},
 						)
 						.then(
 							() => settle({ success: false, error: "La exportación se canceló." }),
