@@ -25,9 +25,19 @@ import {
 	currentVideoPath,
 	ffmpegScreenRecordingActive,
 	nativeScreenRecordingActive,
+	isCursorCaptureActive,
 	selectedSource,
+	setSelectedSource,
 	windowsNativeCaptureActive,
 } from "../ipc/state";
+import { validateCaptureSource } from "../ipc/captureSelection";
+import { listCapturePickerWindows } from "../ipc/capturePickerSources";
+import { stopWindowBoundsCapture } from "../ipc/cursor/bounds";
+import { createScreenSource } from "../ipc/register/capturePicker";
+import { broadcastSelectedSourceChange, getDesktopSources } from "../ipc/register/sources";
+import { createWindowSource } from "../ipc/sourceArea";
+import { getScreen } from "../ipc/utils";
+import { type CaptureSourceDeps, listCaptureSources, selectCaptureSource } from "./captureSources";
 import { type BridgeRequestOptions, type BridgeTarget, RendererBridge } from "./rendererBridge";
 import { authorizeTransferDestination } from "../syka-transfer/transferDestination";
 
@@ -52,7 +62,12 @@ type ToolExtra = {
 	_meta?: { progressToken?: string | number };
 	sendNotification: (notification: {
 		method: "notifications/progress";
-		params: { progressToken: string | number; progress: number; total?: number; message?: string };
+		params: {
+			progressToken: string | number;
+			progress: number;
+			total?: number;
+			message?: string;
+		};
 	}) => Promise<void>;
 };
 
@@ -111,6 +126,41 @@ function progressReporter(extra: ToolExtra) {
 			.catch(() => undefined);
 	};
 }
+
+/** The capture picker's own helpers, so agents and the picker choose alike. */
+const captureSourceDeps: CaptureSourceDeps = {
+	displays: async () => {
+		const primary = getScreen().getPrimaryDisplay().id;
+		const named = await getDesktopSources({
+			types: ["screen"],
+			thumbnailSize: { width: 0, height: 0 },
+		}).catch(() => []);
+		return getScreen()
+			.getAllDisplays()
+			.map((display, index) => ({
+				id: display.id,
+				name:
+					named.find((source) => source.display_id === String(display.id))?.name ??
+					(display.id === primary
+						? `Screen ${index + 1} (Primary)`
+						: `Screen ${index + 1}`),
+				primary: display.id === primary,
+				width: display.size.width,
+				height: display.size.height,
+			}));
+	},
+	windows: listCapturePickerWindows,
+	screenSource: createScreenSource,
+	windowSource: createWindowSource,
+	validate: validateCaptureSource,
+	apply: (source) => {
+		setSelectedSource(source);
+		broadcastSelectedSourceChange();
+		stopWindowBoundsCapture();
+	},
+	busy: () => isCursorCaptureActive || mainProcessRecording(),
+	current: () => selectedSource,
+};
 
 function mainProcessRecording(): boolean {
 	return (
@@ -181,7 +231,8 @@ export class McpTools {
 
 	private async editorState(): Promise<EditorState | null> {
 		const editor = liveWindow(this.ctx.editorWindow());
-		if (!editor || !this.ctx.bridge.supports(editor.webContents.id, "editor.state")) return null;
+		if (!editor || !this.ctx.bridge.supports(editor.webContents.id, "editor.state"))
+			return null;
 		return this.call(editor, "editor.state", undefined, { timeoutMs: 3_000 }).catch(() => null);
 	}
 
@@ -313,7 +364,11 @@ export class McpTools {
 				"editor.open_project",
 				{ path: target },
 				// The editor gives up on its own after a minute and says why.
-				{ timeoutMs: EDITOR_READY_TIMEOUT_MS * 2, readyTimeoutMs: EDITOR_READY_TIMEOUT_MS, signal },
+				{
+					timeoutMs: EDITOR_READY_TIMEOUT_MS * 2,
+					readyTimeoutMs: EDITOR_READY_TIMEOUT_MS,
+					signal,
+				},
 			);
 			this.ctx.openEditor();
 			return state;
@@ -353,7 +408,9 @@ export class McpTools {
 			signal,
 		);
 		if (!state.videoSourcePath)
-			throw new ToolError("The editor has no project or video loaded. Call open_project first.");
+			throw new ToolError(
+				"The editor has no project or video loaded. Call open_project first.",
+			);
 		if (state.exporting) throw new ToolError("The editor is already exporting.");
 		return { editor, state };
 	}
@@ -380,7 +437,11 @@ export class McpTools {
 			editor,
 			"editor.export_mp4",
 			{ outputPath, quality: args.quality, fps: args.fps, encodingMode: args.encodingMode },
-			{ timeoutMs: EXPORT_IDLE_TIMEOUT_MS, signal: extra.signal, onProgress: progressReporter(extra) },
+			{
+				timeoutMs: EXPORT_IDLE_TIMEOUT_MS,
+				signal: extra.signal,
+				onProgress: progressReporter(extra),
+			},
 		);
 		const stats = await fs.stat(result.path);
 		const metadata = await probeNativeVideoMetadata(getFfmpegBinaryPath(), result.path).catch(
@@ -462,7 +523,11 @@ export class McpTools {
 		const hud = liveWindow(this.ctx.hudWindow());
 		if (!hud) throw new ToolError("The recording bar is not open, so nothing is recording.");
 		const state = await this.call(hud, command, undefined, { timeoutMs: 60_000, signal });
-		const verb = { "recorder.pause": "Paused", "recorder.resume": "Resumed", "recorder.restart": "Restarted" }[command];
+		const verb = {
+			"recorder.pause": "Paused",
+			"recorder.resume": "Resumed",
+			"recorder.restart": "Restarted",
+		}[command];
 		return ok(`${verb} the recording.`, { recorder: state });
 	}
 
@@ -482,7 +547,11 @@ export class McpTools {
 		});
 		return ok(`Recording ${selectedSource.name}.`, {
 			recorder: state,
-			source: { id: selectedSource.id ?? null, name: selectedSource.name, type: selectedSource.sourceType ?? null },
+			source: {
+				id: selectedSource.id ?? null,
+				name: selectedSource.name,
+				type: selectedSource.sourceType ?? null,
+			},
 		});
 	}
 
@@ -490,7 +559,10 @@ export class McpTools {
 		const hud = liveWindow(this.ctx.hudWindow());
 		if (!hud) throw new ToolError("The recording bar is not open, so nothing is recording.");
 		const previousVideo = currentRecordingSession?.videoPath ?? currentVideoPath ?? null;
-		const state = await this.call(hud, "recorder.stop", undefined, { timeoutMs: 60_000, signal });
+		const state = await this.call(hud, "recorder.stop", undefined, {
+			timeoutMs: 60_000,
+			signal,
+		});
 		// The bar saves the take, hands it to main and opens the editor on it.
 		const deadline = Date.now() + RECORDING_SAVED_TIMEOUT_MS;
 		while (Date.now() < deadline) {
@@ -559,31 +631,76 @@ export class McpTools {
 			run(async () => this.listProjects()),
 		);
 		server.registerTool(
+			"list_sources",
+			{
+				title: "List capture sources",
+				description:
+					"List what can be recorded: every screen (id `display:<n>`, size, which is primary) and every open window (id `window:...`, app and title), plus the source selected now. Pass an id to select_source.",
+				inputSchema: {},
+				annotations: { readOnlyHint: true },
+			},
+			run(async () => {
+				const sources = await listCaptureSources(captureSourceDeps);
+				return ok(
+					`${sources.screens.length} screen(s), ${sources.windows.length} window(s).`,
+					sources,
+				);
+			}),
+		);
+		server.registerTool(
+			"select_source",
+			{
+				title: "Select capture source",
+				description:
+					"Choose the screen or window the next recording captures, by an id from list_sources. The recording bar shows the new choice, as if the person picked it. Refused while recording.",
+				inputSchema: {
+					id: z
+						.string()
+						.min(1)
+						.describe(
+							"A screen id (`display:<n>`) or window id (`window:...`) from list_sources.",
+						),
+				},
+			},
+			run(async (args: { id: string }) => {
+				const selected = await selectCaptureSource(captureSourceDeps, args.id);
+				return ok(`Selected ${selected.name}.`, { selected });
+			}),
+		);
+		server.registerTool(
 			"open_project",
 			{
 				title: "Open project",
 				description:
 					"Open a .recordly project in the editor window, opening the editor if needed, and wait until its preview is ready. Unsaved changes in the project already open are saved first, like opening a project from the library. Refused while recording.",
 				inputSchema: {
-					path: z.string().min(1).describe("Absolute path of the .recordly project file."),
+					path: z
+						.string()
+						.min(1)
+						.describe("Absolute path of the .recordly project file."),
 				},
 			},
-			run(async (args: { path: string }, extra) => this.openProjectTool(args.path, extra.signal)),
+			run(async (args: { path: string }, extra) =>
+				this.openProjectTool(args.path, extra.signal),
+			),
 		);
 		server.registerTool(
 			"start_recording",
 			{
 				title: "Start recording",
 				description:
-					"Start a recording of the capture source currently selected in the recording bar, with its countdown. Optionally turn the microphone, system audio or webcam on or off first; those choices are saved, like flipping them in the bar. Fails if no source is selected or a recording is already running. The person sees the recording bar and can stop it themselves.",
+					"Start a recording of the capture source currently selected in the recording bar, with its countdown. Optionally turn the microphone, system audio or webcam on or off first; those choices are saved, like flipping them in the bar. Fails if no source is selected (see list_sources and select_source) or a recording is already running. The person sees the recording bar and can stop it themselves.",
 				inputSchema: {
 					microphone: z.boolean().optional().describe("Record the microphone."),
 					systemAudio: z.boolean().optional().describe("Record the computer's sound."),
 					webcam: z.boolean().optional().describe("Record the webcam."),
 				},
 			},
-			run(async (args: { microphone?: boolean; systemAudio?: boolean; webcam?: boolean }, extra) =>
-				this.startRecording(args, extra.signal),
+			run(
+				async (
+					args: { microphone?: boolean; systemAudio?: boolean; webcam?: boolean },
+					extra,
+				) => this.startRecording(args, extra.signal),
 			),
 		);
 		server.registerTool(
@@ -600,10 +717,13 @@ export class McpTools {
 			"pause_recording",
 			{
 				title: "Pause recording",
-				description: "Pause the running recording. Fails when nothing is recording or it is already paused.",
+				description:
+					"Pause the running recording. Fails when nothing is recording or it is already paused.",
 				inputSchema: {},
 			},
-			run(async (_args: unknown, extra) => this.recorderCommand("recorder.pause", extra.signal)),
+			run(async (_args: unknown, extra) =>
+				this.recorderCommand("recorder.pause", extra.signal),
+			),
 		);
 		server.registerTool(
 			"resume_recording",
@@ -612,18 +732,22 @@ export class McpTools {
 				description: "Resume a paused recording. Fails when the recording is not paused.",
 				inputSchema: {},
 			},
-			run(async (_args: unknown, extra) => this.recorderCommand("recorder.resume", extra.signal)),
+			run(async (_args: unknown, extra) =>
+				this.recorderCommand("recorder.resume", extra.signal),
+			),
 		);
 		server.registerTool(
 			"restart_recording",
 			{
 				title: "Restart recording",
 				description:
-					"Discard the running take and start a new one right away with the same source and devices (the recording bar's \"Volver a grabar\"). The discarded take is not kept. Fails when nothing is recording.",
+					'Discard the running take and start a new one right away with the same source and devices (the recording bar\'s "Volver a grabar"). The discarded take is not kept. Fails when nothing is recording.',
 				annotations: { destructiveHint: true },
 				inputSchema: {},
 			},
-			run(async (_args: unknown, extra) => this.recorderCommand("recorder.restart", extra.signal)),
+			run(async (_args: unknown, extra) =>
+				this.recorderCommand("recorder.restart", extra.signal),
+			),
 		);
 		server.registerTool(
 			"export_mp4",
@@ -632,7 +756,10 @@ export class McpTools {
 				description:
 					"Export the project open in the editor (or projectPath, opened first) to an MP4 file with the editor's own export pipeline, the same as its Export button: background, zooms, cursor, webcam, cuts and audio included. Sends progress notifications when the client asks for them. Returns the file's path, size, duration and dimensions. An existing file at outputPath is replaced.",
 				inputSchema: {
-					outputPath: z.string().min(1).describe("Absolute path of the .mp4 file to write."),
+					outputPath: z
+						.string()
+						.min(1)
+						.describe("Absolute path of the .mp4 file to write."),
 					quality: z
 						.enum(QUALITIES)
 						.default("good")
@@ -650,7 +777,9 @@ export class McpTools {
 					projectPath: z
 						.string()
 						.optional()
-						.describe("Absolute path of a .recordly project to open and export instead of the open one."),
+						.describe(
+							"Absolute path of a .recordly project to open and export instead of the open one.",
+						),
 				},
 			},
 			run(
@@ -671,22 +800,31 @@ export class McpTools {
 			{
 				title: "Transfer to Syka Studio",
 				description:
-					"Run \"Editar en Syka\" on the project open in the editor (or projectPath, opened first): render the screen video with its cursor and save a native Syka Studio package inside destinationFolder, using the editor's export quality settings. With open: true it then opens the package in Syka Studio. Returns the package folder.",
+					'Run "Editar en Syka" on the project open in the editor (or projectPath, opened first): render the screen video with its cursor and save a native Syka Studio package inside destinationFolder, using the editor\'s export quality settings. With open: true it then opens the package in Syka Studio. Returns the package folder.',
 				inputSchema: {
 					destinationFolder: z
 						.string()
 						.min(1)
-						.describe("Absolute path of the folder that will contain the package; created if missing."),
-					open: z.boolean().default(false).describe("Open the package in Syka Studio afterwards."),
+						.describe(
+							"Absolute path of the folder that will contain the package; created if missing.",
+						),
+					open: z
+						.boolean()
+						.default(false)
+						.describe("Open the package in Syka Studio afterwards."),
 					projectPath: z
 						.string()
 						.optional()
-						.describe("Absolute path of a .recordly project to open and transfer instead of the open one."),
+						.describe(
+							"Absolute path of a .recordly project to open and transfer instead of the open one.",
+						),
 				},
 			},
 			run(
-				async (args: { destinationFolder: string; open: boolean; projectPath?: string }, extra) =>
-					this.transferToStudio(args, extra),
+				async (
+					args: { destinationFolder: string; open: boolean; projectPath?: string },
+					extra,
+				) => this.transferToStudio(args, extra),
 			),
 		);
 	}

@@ -16,7 +16,7 @@ import { getScreenSourceIdForDisplay, isLikelyLinuxWaylandSession } from "./sour
 import { broadcastSelectedSourceChange, getDesktopSources } from "./sources";
 
 /** The same source the screen list offers for this display. */
-async function createScreenSource(displayId: number): Promise<SelectedSource | null> {
+export async function createScreenSource(displayId: number): Promise<SelectedSource | null> {
 	const displays = getScreen().getAllDisplays();
 	const index = displays.findIndex((display) => display.id === displayId);
 	if (index < 0) return null;

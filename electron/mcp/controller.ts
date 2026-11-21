@@ -26,7 +26,7 @@ export type McpControllerDeps = {
 };
 
 const INSTRUCTIONS =
-	"Syka Recorder records the screen and edits recordings. Call status first. To record: start_recording, then stop_recording (it returns the saved video). To deliver: open_project, then export_mp4 or transfer_to_studio. The person sees everything happen in the app.";
+	"Syka Recorder records the screen and edits recordings. Call status first. To record: list_sources and select_source if needed, start_recording, then stop_recording (it returns the saved video). To deliver: open_project, then export_mp4 or transfer_to_studio. The person sees everything happen in the app.";
 
 /**
  * Owns the in-app MCP server: the HTTP endpoint, the bridge to the recorder
@@ -153,6 +153,8 @@ export class McpController {
 		contents.on("render-process-gone", () =>
 			this.bridge.forget(id, "The window's renderer crashed."),
 		);
-		contents.once("destroyed", () => this.bridge.forget(id, "The window closed before answering."));
+		contents.once("destroyed", () =>
+			this.bridge.forget(id, "The window closed before answering."),
+		);
 	}
 }

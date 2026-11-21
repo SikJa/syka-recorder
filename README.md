@@ -54,7 +54,7 @@ Compartí **la carpeta completa**, no sólo `manifest.json`. Los medios del proy
 
 ## Para agentes (MCP)
 
-Recorder trae un servidor MCP local para que un agente lo maneje: ver el estado, listar y abrir proyectos, grabar (iniciar, pausar, reanudar, reiniciar, detener), exportar MP4 y pasar un proyecto a Studio. Solo escucha en tu equipo y rechaza pedidos que vengan de páginas web. Se apaga en **Configuración → General**, donde también está la dirección.
+Recorder trae un servidor MCP local para que un agente lo maneje: ver el estado, elegir qué pantalla o ventana grabar, listar y abrir proyectos, grabar (iniciar, pausar, reanudar, reiniciar, detener), exportar MP4 y pasar un proyecto a Studio. Solo escucha en tu equipo y rechaza pedidos que vengan de páginas web. Se apaga en **Configuración → General**, donde también está la dirección.
 
 ```bash
 claude mcp add --transport http syka-recorder http://127.0.0.1:4171/mcp
