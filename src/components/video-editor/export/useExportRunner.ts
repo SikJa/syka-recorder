@@ -2,8 +2,9 @@ import { useCallback, useRef } from "react";
 import { toast } from "@/components/ui/toast";
 import { getMp4ExportBitrate } from "@/lib/exporter/exportBitrate";
 import { DEFAULT_MP4_CODEC } from "@/lib/exporter/mp4Support";
-import type { ExportSettings } from "@/lib/exporter/types";
+import type { ExportProgress, ExportSettings } from "@/lib/exporter/types";
 import { calculateMp4ExportDimensions, capMp4ShareDimensions } from "../exportDimensions";
+import { probeDoubleMp4Dimensions } from "./useExportDimensions";
 import { resolveMp4ExportRouting } from "../mp4ExportRouting";
 import { resolveMp4ExportSettings } from "../mp4ExportSettings";
 import { createSmokeExportProgressSampler } from "../smokeExportProgress";
@@ -20,6 +21,17 @@ import {
 	useExportSuccessToast,
 } from "./exportRunnerSupport";
 
+/** How an export ended, for callers that drive it without the dialog (MCP). */
+export type ExportOutcome = { success: true; path: string } | { success: false; error: string };
+
+export type ExportRunOptions = {
+	destination?: "download" | "share";
+	/** Writes the MP4 here instead of asking with a save dialog. */
+	outputPath?: string;
+	onProgress?: (progress: ExportProgress) => void;
+	onSettled?: (outcome: ExportOutcome) => void;
+};
+
 export function useExportRunner(input: ExportRunnerInput) {
 	const inputRef = useRef(input);
 	inputRef.current = input;
@@ -28,7 +40,7 @@ export function useExportRunner(input: ExportRunnerInput) {
 	const handleExport = useCallback(
 		async (
 			settings: ExportSettings,
-			options?: { destination?: "download" | "share" },
+			options?: ExportRunOptions,
 		): Promise<string | undefined> => {
 			const {
 				videoPath,
@@ -239,7 +251,7 @@ export function useExportRunner(input: ExportRunnerInput) {
 					const {
 						pipelineModel,
 						useExperimentalNativeExport,
-						useExperimentalNvidiaCudaExport,
+						useExperimentalNvidiaCudaExport: routedNvidiaCudaExport,
 						backendPreference,
 					} = resolveMp4ExportRouting({
 						smokeExportConfig: {
@@ -261,11 +273,30 @@ export function useExportRunner(input: ExportRunnerInput) {
 						},
 					);
 					if (exportWasCancelled()) return;
-					const requestedDimensions = calculateMp4ExportDimensions(
-						supportedSourceDimensions.width,
-						supportedSourceDimensions.height,
-						quality,
-					);
+					// "double" needs its own encoder check at the larger size. When no
+					// encoder goes beyond the source, export at the source size.
+					const doubleDimensions =
+						quality === "double" && options?.destination !== "share"
+							? await probeDoubleMp4Dimensions(
+									supportedSourceDimensions,
+									selectedMp4FrameRate,
+								)
+							: null;
+					if (exportWasCancelled()) return;
+					const requestedDimensions =
+						doubleDimensions ??
+						calculateMp4ExportDimensions(
+							supportedSourceDimensions.width,
+							supportedSourceDimensions.height,
+							quality === "double" ? "source" : quality,
+						);
+					const encoderPath =
+						doubleDimensions?.encoderPath ?? supportedSourceDimensions.encoderPath;
+					// The CUDA compositor samples the source with nearest neighbour, which
+					// turns an upscaled recording blocky. Larger-than-source frames go
+					// through the regular renderer instead.
+					const useExperimentalNvidiaCudaExport =
+						routedNvidiaCudaExport && !doubleDimensions;
 					const { width: exportWidth, height: exportHeight } =
 						options?.destination === "share"
 							? capMp4ShareDimensions(
@@ -294,7 +325,7 @@ export function useExportRunner(input: ExportRunnerInput) {
 						bitrate,
 						codec: DEFAULT_MP4_CODEC,
 						encodingMode,
-						preferredEncoderPath: supportedSourceDimensions.encoderPath,
+						preferredEncoderPath: encoderPath,
 						preferredRenderBackend: smokeExportConfig.renderBackend,
 						experimentalNativeExport: useExperimentalNativeExport,
 						experimentalNvidiaCudaExport: useExperimentalNvidiaCudaExport,
@@ -315,6 +346,7 @@ export function useExportRunner(input: ExportRunnerInput) {
 								if (exportWasCancelled()) return;
 								recordSmokeProgress(progress);
 								setExportProgress(progress);
+								options?.onProgress?.(progress);
 							},
 						}),
 						audioRegions,
@@ -380,9 +412,10 @@ export function useExportRunner(input: ExportRunnerInput) {
 								tempPath: result.tempFilePath,
 								fileName,
 								outputPath:
-									smokeExportConfig.enabled && smokeExportConfig.outputPath
+									options?.outputPath ??
+									(smokeExportConfig.enabled && smokeExportConfig.outputPath
 										? smokeExportConfig.outputPath
-										: null,
+										: null),
 								captionSidecar: sidecarForThisExport,
 							});
 							if (exportWasCancelled()) {
@@ -405,7 +438,8 @@ export function useExportRunner(input: ExportRunnerInput) {
 							const blobSave = await saveExportBlob(
 								result.blob,
 								fileName,
-								smokeExportConfig.enabled ? smokeExportConfig.outputPath : null,
+								options?.outputPath ??
+									(smokeExportConfig.enabled ? smokeExportConfig.outputPath : null),
 								sidecarForThisExport,
 							);
 							if (exportWasCancelled()) {
@@ -435,6 +469,7 @@ export function useExportRunner(input: ExportRunnerInput) {
 									metrics: result.metrics,
 								});
 							}
+							options?.onSettled?.({ success: false, error: "Save canceled" });
 							pendingExportSaveRef.current = pendingOnCancel;
 							setHasPendingExportSave(true);
 							setExportError(
@@ -465,11 +500,16 @@ export function useExportRunner(input: ExportRunnerInput) {
 							}
 							showExportSuccessToast(saveResult.path);
 							setExportedFilePath(saveResult.path);
+							options?.onSettled?.({ success: true, path: saveResult.path });
 							if (smokeExportConfig.enabled) {
 								window.close();
 								return;
 							}
 						} else {
+							options?.onSettled?.({
+								success: false,
+								error: saveResult.message || "Failed to save video",
+							});
 							if (smokeExportConfig.enabled) {
 								await writeSmokeExportReport(smokeExportConfig.outputPath, {
 									success: false,
@@ -517,6 +557,7 @@ export function useExportRunner(input: ExportRunnerInput) {
 								metrics: result.metrics,
 							});
 						}
+						options?.onSettled?.({ success: false, error: result.error || "Export failed" });
 						setExportError(result.error || "Export failed");
 						showExportErrorToast(result.error || "Export failed");
 						keepExportDialogOpen = options?.destination !== "share";
@@ -536,6 +577,7 @@ export function useExportRunner(input: ExportRunnerInput) {
 				if (exportWasCancelled()) return;
 				console.error("Export error:", error);
 				const errorMessage = error instanceof Error ? error.message : "Unknown error";
+				options?.onSettled?.({ success: false, error: errorMessage });
 				if (smokeExportConfig.enabled) {
 					await writeSmokeExportReport(smokeExportConfig.outputPath, {
 						success: false,

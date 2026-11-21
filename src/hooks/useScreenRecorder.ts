@@ -125,9 +125,10 @@ type UseScreenRecorderReturn = {
 	countdownActive: boolean;
 	starting: boolean;
 	toggleRecording: () => void;
+	restartRecording: () => Promise<void>;
 	pauseRecording: () => void;
 	resumeRecording: () => void;
-	cancelRecording: () => void;
+	cancelRecording: () => Promise<void>;
 	cancelRecordingStart: () => Promise<boolean>;
 	preparePermissions: () => Promise<boolean>;
 	isMacOS: boolean;
@@ -2403,9 +2404,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		}
 	}, [markRecordingResumed, paused, recording, resumeMicFallbackRecorder]);
 
-	const cancelRecording = useCallback(() => {
+	// Resolves once the discarded capture has released its devices and files,
+	// so a restart can begin a fresh take right after.
+	const cancelRecording = useCallback((): Promise<void> => {
 		recordingStartGeneration.current += 1;
-		if (!recording) return;
+		if (!recording) return Promise.resolve();
 		setPaused(false);
 		markRecordingResumed(Date.now());
 
@@ -2426,22 +2429,31 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		if (nativeScreenRecording.current) {
 			setRecording(false);
-			window.electronAPI?.setRecordingState(false);
-			void (async () => {
-				await Promise.allSettled([discardActiveNativeCapture(), stopMicFallbackRecorder()]);
-			})();
-			return;
+			return Promise.allSettled([
+				window.electronAPI?.setRecordingState(false),
+				discardActiveNativeCapture(),
+				stopMicFallbackRecorder(),
+			]).then(() => undefined);
 		}
 
 		if (mediaRecorder.current) {
+			const recorder = mediaRecorder.current;
 			chunks.current = [];
 			cleanupCapturedMedia();
-			if (mediaRecorder.current.state !== "inactive") {
-				mediaRecorder.current.stop();
-			}
+			const stopped =
+				recorder.state === "inactive"
+					? Promise.resolve()
+					: new Promise<void>((resolve) => {
+							recorder.addEventListener("stop", () => resolve(), { once: true });
+							recorder.stop();
+						});
 			setRecording(false);
-			window.electronAPI?.setRecordingState(false);
+			return Promise.allSettled([
+				window.electronAPI?.setRecordingState(false),
+				stopped,
+			]).then(() => undefined);
 		}
+		return Promise.resolve();
 	}, [
 		cleanupCapturedMedia,
 		discardActiveNativeCapture,
@@ -2464,6 +2476,21 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		startRecording();
 	};
 
+	// Discard the current take and start over with the same source and devices.
+	const startRecordingRef = useRef(startRecording);
+	startRecordingRef.current = startRecording;
+	const restartInFlight = useRef(false);
+	const restartRecording = useCallback(async () => {
+		if (!recordingActive.current || restartInFlight.current || finalizing) return;
+		restartInFlight.current = true;
+		try {
+			await cancelRecording();
+			await startRecordingRef.current();
+		} finally {
+			restartInFlight.current = false;
+		}
+	}, [cancelRecording, finalizing]);
+
 	return {
 		recording,
 		paused,
@@ -2471,6 +2498,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		countdownActive,
 		starting,
 		toggleRecording,
+		restartRecording,
 		pauseRecording,
 		resumeRecording,
 		cancelRecording,

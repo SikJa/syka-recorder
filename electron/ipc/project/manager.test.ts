@@ -49,6 +49,37 @@ describe("local media path policy", () => {
 		}
 	});
 
+	it("approves backgrounds saved in the editor preferences, and only media files", async () => {
+		const outside = path.join(tempRoot, "Outside");
+		await fs.mkdir(outside, { recursive: true });
+		const wallpaper = path.join(outside, "loop.mp4");
+		const custom = path.join(outside, "still.png");
+		const notMedia = path.join(outside, "secrets.txt");
+		const unrelated = path.join(outside, "other.mp4");
+		await Promise.all(
+			[wallpaper, custom, notMedia, unrelated].map((file) => fs.writeFile(file, "x")),
+		);
+		await fs.writeFile(
+			path.join(userDataPath, "app-settings.json"),
+			JSON.stringify({
+				"recordly.editor.preferences": {
+					wallpaper,
+					customWallpapers: [custom, notMedia, "#101010", 7],
+				},
+			}),
+		);
+		const manager = await import("./manager");
+
+		expect(manager.isAllowedLocalReadPath(wallpaper)).toBe(true);
+		expect(manager.isAllowedLocalReadPath(custom)).toBe(true);
+		expect(manager.isAllowedLocalReadPath(notMedia)).toBe(false);
+		expect(manager.isAllowedLocalReadPath(unrelated)).toBe(false);
+
+		// Starting another recording session must not drop them again.
+		await manager.replaceApprovedSessionLocalReadPaths([]);
+		expect(manager.isAllowedLocalReadPath(wallpaper)).toBe(true);
+	});
+
 	it("reads library previews without switching the active project and rejects unknown projects", async () => {
 		vi.doMock("../../mediaServer", () => ({
 			getMediaServerBaseUrl: () => "http://127.0.0.1:1234",

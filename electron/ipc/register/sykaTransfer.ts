@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { access } from "node:fs/promises";
+import { access, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { BrowserWindow, dialog, ipcMain } from "electron";
 import { readAppSetting, writeAppSetting } from "../../appSettingsStore";
 import type { SaveTransferRequest } from "../../../src/lib/sykaExport/contract";
 import { openInStudio } from "../../syka-transfer/openInStudio";
 import { writeTransferPackage } from "../../syka-transfer/package";
+import { takeTransferDestination } from "../../syka-transfer/transferDestination";
 import { isOwnedExportPath } from "../export/exportStream";
 import { resolveApprovedLocalMediaPath } from "../project/manager";
 import { currentProjectPath } from "../state";
@@ -106,9 +107,14 @@ export function registerSykaTransferHandlers() {
 			title: "Guardar paquete para Syka Studio",
 			properties: ["openDirectory", "createDirectory"],
 		};
-		const result = window
-			? await dialog.showOpenDialog(window, options)
-			: await dialog.showOpenDialog(options);
+		// An agent may have chosen the folder already (MCP transfer_to_studio).
+		const authorized = takeTransferDestination(event.sender.id);
+		if (authorized) await mkdir(authorized, { recursive: true });
+		const result = authorized
+			? { canceled: false, filePaths: [authorized] }
+			: window
+				? await dialog.showOpenDialog(window, options)
+				: await dialog.showOpenDialog(options);
 		if (result.canceled || !result.filePaths[0]) return { canceled: true };
 		if (event.sender.isDestroyed()) return { canceled: true };
 		const operationId = randomUUID();

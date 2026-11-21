@@ -172,7 +172,8 @@ export interface VideoFrameData {
 
 export type ExportEncodingMode = "fast" | "balanced" | "quality";
 
-export type ExportQuality = "medium" | "good" | "high" | "source";
+// "double" renders at twice the source size, within H.264 level limits.
+export type ExportQuality = "medium" | "good" | "high" | "source" | "double";
 
 export type ExportMp4FrameRate = 24 | 30 | 60;
 

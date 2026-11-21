@@ -1,4 +1,5 @@
 import {
+	ArrowCounterClockwise,
 	House,
 	MicrophoneIcon,
 	MicrophoneSlashIcon,
@@ -20,6 +21,7 @@ interface RecordingControlsProps {
 	elapsed: number;
 	onPauseResume: () => void;
 	onStopRecording: () => void;
+	onRestartRecording: () => void;
 	onHideHud: () => void;
 	onCancelRecording: () => void;
 	formatTime: (seconds: number) => string;
@@ -32,6 +34,7 @@ export function RecordingControls({
 	elapsed,
 	onPauseResume,
 	onStopRecording,
+	onRestartRecording,
 	onHideHud,
 	onCancelRecording,
 	formatTime,
@@ -111,6 +114,18 @@ export function RecordingControls({
 					<span className="size-3 rounded-[3px] bg-current" />
 				</Button>
 				<Tooltip.Content>{t("recording.stop")}</Tooltip.Content>
+			</Tooltip>
+			<Tooltip>
+				<Button
+					isIconOnly
+					variant="ghost"
+					className={actionClass}
+					onPress={onRestartRecording}
+					aria-label={t("recording.restart")}
+				>
+					<ArrowCounterClockwise className="size-4" />
+				</Button>
+				<Tooltip.Content>{t("recording.restart")}</Tooltip.Content>
 			</Tooltip>
 			<Tooltip>
 				<Button

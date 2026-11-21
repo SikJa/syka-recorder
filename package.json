@@ -12,7 +12,7 @@
 		"url": "https://github.com/SikJa/syka-recorder/issues"
 	},
 	"private": true,
-	"version": "1.4.3",
+	"version": "1.4.4",
 	"type": "module",
 	"scripts": {
 		"build:brand-icons": "node scripts/build-brand-icons.mjs",
@@ -52,13 +52,15 @@
 		"dev:ui": "vite --mode ui --host 127.0.0.1"
 	},
 	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.32.2",
 		"@phosphor-icons/react": "^2.1.10",
 		"@supabase/supabase-js": "^2.116.0",
 		"capturekit": "^1.0.13",
 		"electron-updater": "^6.8.3",
 		"ffmpeg-static": "^5.3.0",
 		"ffprobe-static": "^3.1.0",
-		"uiohook-napi": "^1.5.4"
+		"uiohook-napi": "^1.5.4",
+		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.13",

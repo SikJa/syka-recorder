@@ -26,6 +26,8 @@
 		"window": "Fenster",
 		"noSourcesFound": "Keine Quellen gefunden",
 		"microphone": "Mikrofon",
+		"systemAudio": "System-Audio",
+		"systemAudioDefaultOutput": "Nimmt auf, was über die Standard-Audioausgabe von Windows läuft.",
 		"turnOffMicrophone": "Mikrofon ausschalten",
 		"selectMicToEnable": "Mikrofon zum Aktivieren auswählen",
 		"noMicrophonesFound": "Keine Mikrofone gefunden",
@@ -42,6 +44,7 @@
 		"resume": "Fortsetzen",
 		"pause": "Pause",
 		"stop": "Stopp",
+		"restart": "Aufnahme neu starten",
 		"cancel": "Abbrechen",
 		"more": "Mehr",
 		"update": {

@@ -230,6 +230,10 @@
 			"high": "Hoch",
 			"original": "Original"
 		},
+		"double": {
+			"title": "Doppelte Auflösung (2×)",
+			"hint": "Rendert Original in {{dimensions}} für schärfere Zooms und Texte."
+		},
 		"fpsTitle": "FPS",
 		"loop": "Wiederholen",
 		"outputDimensions": "Ausgabe: {{dimensions}}px",
@@ -258,5 +262,12 @@
 		"title": "Updates",
 		"experimental": "Experimentelle Updates",
 		"saveFailed": "Update-Kanal konnte nicht geändert werden."
+	},
+	"mcp": {
+		"title": "Agentensteuerung (MCP)",
+		"description": "Erlaubt KI-Agenten auf diesem Computer, aufzunehmen sowie Projekte zu öffnen, zu exportieren und an Studio zu senden.",
+		"copy": "Kopieren",
+		"copied": "Kopiert",
+		"copyFailed": "Die Adresse konnte nicht kopiert werden."
 	}
 }

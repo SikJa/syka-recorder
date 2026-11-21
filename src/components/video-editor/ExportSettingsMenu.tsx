@@ -31,7 +31,8 @@ interface ExportSettingsMenuProps {
 	showCaptionSidecarOption?: boolean;
 	includeCaptionSidecar?: boolean;
 	onIncludeCaptionSidecarChange?: (enabled: boolean) => void;
-	mp4OutputDimensions?: Record<ExportQuality, { width: number; height: number }>;
+	// A tier without dimensions (e.g. "double" before an encoder confirms it) is hidden.
+	mp4OutputDimensions?: Partial<Record<ExportQuality, { width: number; height: number }>>;
 	gifFrameRate: GifFrameRate;
 	onGifFrameRateChange?: (rate: GifFrameRate) => void;
 	gifLoop: boolean;
@@ -128,6 +129,10 @@ export function ExportSettingsMenu({
 }: ExportSettingsMenuProps) {
 	const tSettings = useScopedT("settings");
 	const isLegacyModel = exportPipelineModel === "legacy";
+	// "double" is Original composed at twice the size, so it is a switch under
+	// the tiers rather than a fifth tag (five tags wrap their dimensions).
+	const doubleDimensions = mp4OutputDimensions?.double;
+	const selectedQuality = exportQuality === "double" ? "source" : exportQuality;
 
 	return (
 		<Card className={className}>
@@ -170,20 +175,46 @@ export function ExportSettingsMenu({
 					<>
 						<Choices
 							label={tSettings("export.qualityTitle", "Quality")}
-							value={exportQuality}
+							value={selectedQuality}
 							onChange={onExportQualityChange}
 							options={(["medium", "good", "high", "source"] as const).map(
-								(value, index) => ({
-									value,
-									label: tSettings(
-										`export.quality.${["low", "medium", "high", "original"][index]}`,
-									),
-									description: mp4OutputDimensions
-										? `${mp4OutputDimensions[value].width} × ${mp4OutputDimensions[value].height}`
-										: undefined,
-								}),
+								(value, index) => {
+									const dimensions = mp4OutputDimensions?.[value];
+									return {
+										value,
+										label: tSettings(
+											`export.quality.${["low", "medium", "high", "original"][index]}`,
+										),
+										description: dimensions
+											? `${dimensions.width} × ${dimensions.height}`
+											: undefined,
+									};
+								},
 							)}
 						/>
+						{doubleDimensions && (
+							<div>
+								<Switch
+									checked={exportQuality === "double"}
+									onCheckedChange={(checked) =>
+										onExportQualityChange?.(checked ? "double" : "source")
+									}
+								>
+									<Label>
+										{tSettings("export.double.title", "Double resolution (2×)")}
+									</Label>
+								</Switch>
+								<Description>
+									{tSettings(
+										"export.double.hint",
+										"Renders Original at {{dimensions}} for sharper zooms and text.",
+										{
+											dimensions: `${doubleDimensions.width} × ${doubleDimensions.height}`,
+										},
+									)}
+								</Description>
+							</div>
+						)}
 						<Choices
 							label={tSettings("export.encodingTitle", "Encoding")}
 							value={exportEncodingMode}

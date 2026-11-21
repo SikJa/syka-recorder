@@ -3,6 +3,7 @@ import {
 	calculateMp4ExportDimensions,
 	calculateMp4SourceDimensions,
 	capMp4ShareDimensions,
+	fitMp4DimensionsToH264Level,
 	shouldDebounceMp4SupportProbe,
 } from "./exportDimensions";
 
@@ -158,5 +159,46 @@ describe("shouldDebounceMp4SupportProbe", () => {
 				aspectRatio: "16:9",
 			}),
 		).toBe(false);
+	});
+});
+
+describe("double MP4 export tier", () => {
+	const macroblocks = (size: { width: number; height: number }) =>
+		Math.ceil(size.width / 16) * Math.ceil(size.height / 16);
+
+	it("composes at twice the source size when the H.264 level allows it", () => {
+		expect(calculateMp4ExportDimensions(1366, 768, "double")).toEqual({
+			width: 2732,
+			height: 1536,
+		});
+		expect(calculateMp4ExportDimensions(1920, 1080, "double", 30)).toEqual({
+			width: 3840,
+			height: 2160,
+		});
+	});
+
+	it("stays within level 5.1 frame and rate limits, even and in shape", () => {
+		for (const [width, height, frameRate] of [
+			[1366, 768, 60],
+			[1920, 1080, 60],
+			[2560, 1440, 30],
+			[3840, 2160, 24],
+			[1080, 1920, 30],
+		] as const) {
+			const size = calculateMp4ExportDimensions(width, height, "double", frameRate);
+			expect(size.width % 2).toBe(0);
+			expect(size.height % 2).toBe(0);
+			expect(Math.max(size.width, size.height)).toBeLessThanOrEqual(4096);
+			expect(macroblocks(size)).toBeLessThanOrEqual(Math.min(36_864, 983_040 / frameRate));
+			expect(size.width / size.height).toBeCloseTo(width / height, 2);
+		}
+		expect(calculateMp4ExportDimensions(1366, 768, "double", 60).width).toBeGreaterThan(2700);
+	});
+
+	it("never grows past a source that already sits at the limit", () => {
+		expect(fitMp4DimensionsToH264Level(4096, 2304, 24)).toEqual({ width: 4096, height: 2304 });
+		// 30 fps caps level 5.1 at 32,768 macroblocks, just under a 4K frame.
+		const doubled4k = calculateMp4ExportDimensions(3840, 2160, "double", 30);
+		expect(doubled4k.width * doubled4k.height).toBeLessThanOrEqual(3840 * 2160);
 	});
 });

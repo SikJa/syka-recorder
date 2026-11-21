@@ -26,6 +26,8 @@
 		"window": "Ventana",
 		"noSourcesFound": "No se encontraron fuentes",
 		"microphone": "Micrófono",
+		"systemAudio": "Audio del sistema",
+		"systemAudioDefaultOutput": "Graba lo que suena en la salida de audio predeterminada de Windows.",
 		"turnOffMicrophone": "Desactivar micrófono",
 		"selectMicToEnable": "Selecciona un micrófono para activar",
 		"noMicrophonesFound": "No se encontraron micrófonos",
@@ -42,6 +44,7 @@
 		"resume": "Reanudar",
 		"pause": "Pausa",
 		"stop": "Detener",
+		"restart": "Volver a grabar",
 		"cancel": "Cancelar",
 		"more": "Más",
 		"update": {

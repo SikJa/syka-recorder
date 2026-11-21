@@ -1,18 +1,13 @@
-import {
-	getWebcamShadowStrength,
-	WEBCAM_SHADOW_LAYER_PROFILES,
-	VIDEO_SHADOW_LAYER_PROFILES,
-} from "../../src/lib/exporter/shadowProfile";
+import { VIDEO_SHADOW_LAYER_PROFILES } from "../../src/lib/exporter/shadowProfile";
 import { getSquirclePathPoints, getSquircleSvgPath } from "../../src/lib/geometry/squircle";
 import type { TransferPlan } from "../../src/lib/sykaExport/contract";
 import { encodeMaskFile, quantizeLogit } from "./studioMask";
 
-/** Avoid translucent rectangular seams from subpixel mask-layer boundaries. */
+/** Whole pixels, so the camera reads as round numbers in Studio's inspector. */
 export function alignWebcamToPixels(webcam: NonNullable<TransferPlan["webcam"]>) {
 	const width = Math.max(1, Math.round(webcam.width));
 	const height = Math.max(1, Math.round(webcam.height));
 	const scale = Math.max(width / webcam.width, height / webcam.height);
-	const video = webcam.videoRect;
 	return {
 		...webcam,
 		x: Math.round(webcam.x),
@@ -20,33 +15,7 @@ export function alignWebcamToPixels(webcam: NonNullable<TransferPlan["webcam"]>)
 		width,
 		height,
 		cornerRadius: Math.min(Math.min(width, height) / 2, webcam.cornerRadius * scale),
-		...(video
-			? {
-					videoRect: {
-						x: (width - webcam.width * scale) / 2 + video.x * scale,
-						y: (height - webcam.height * scale) / 2 + video.y * scale,
-						width: video.width * scale,
-						height: video.height * scale,
-					},
-				}
-			: {}),
 	};
-}
-
-/** One static native matte, held for the whole take by Studio's own mask decoder. */
-export async function webcamAppearance(webcam: NonNullable<TransferPlan["webcam"]>) {
-	const strength = getWebcamShadowStrength(webcam.shadow ?? 0);
-	const size = Math.min(webcam.width, webcam.height);
-	return shapeAppearance(
-		webcam.width,
-		webcam.height,
-		webcam.cornerRadius,
-		WEBCAM_SHADOW_LAYER_PROFILES.map((layer) => ({
-			dy: size * layer.offsetScale * strength,
-			blur: size * layer.blurScale * strength,
-			alpha: layer.alphaScale * strength,
-		})),
-	);
 }
 
 export async function screenAppearance(

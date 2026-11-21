@@ -30,6 +30,8 @@ import {
 	killWindowsCaptureProcess,
 	registerIpcHandlers,
 } from "./ipc/handlers";
+import { registerMcpHandlers } from "./ipc/register/mcp";
+import { McpController } from "./mcp/controller";
 import { ensureMediaServer } from "./mediaServer";
 import { hardenWebContentsNavigation, shouldHardenWebContentsType } from "./navigationPolicy";
 import { shouldGrantDisplayCapture, shouldGrantMediaPermission, shouldGrantEditorFullscreen } from "./permissionPolicy";
@@ -61,6 +63,7 @@ import {
 	beginHudCaptureProtection,
 	reassertHudOverlayMousePassthrough as reassertHudOverlayMouseState,
 	setHudOverlayRecordingActive,
+	setHudRecordingPreparationActive,
 	showUpdateToastWindow,
 } from "./windows";
 
@@ -187,6 +190,7 @@ let isForceClosing = false;
 let isAppQuitting = false;
 let isCreatingMainWindow = false;
 let isCreatingEditorWindow = false;
+let mcpController: McpController | null = null;
 const shouldEnforceSingleInstanceLock = !IS_DEV;
 const hasSingleInstanceLock = shouldEnforceSingleInstanceLock
 	? app.requestSingleInstanceLock()
@@ -883,6 +887,7 @@ app.on("before-quit", () => {
 	void clearRecordingTrashUndo().catch((error) =>
 		console.warn("Could not clear recording undo cache", error),
 	);
+	void mcpController?.stop();
 	killWindowsCaptureProcess();
 	showCursor();
 	cleanupNativeVideoExportSessions();
@@ -1052,6 +1057,21 @@ app.whenReady().then(async () => {
 			}
 		},
 	);
+
+	// Agents drive the same windows the person sees; smoke exports run alone.
+	if (!IS_SMOKE_EXPORT) {
+		mcpController = new McpController({
+			version: app.getVersion(),
+			hudWindow: getHudOverlayWindow,
+			editorWindow: getExistingEditorWindow,
+			openEditor: () => {
+				setHudRecordingPreparationActive(false);
+				return createEditorWindowWrapper();
+			},
+		});
+		registerMcpHandlers(mcpController);
+		void mcpController.start();
+	}
 
 	if (IS_SMOKE_EXPORT || process.env.RECORDLY_DEV_OPEN_RECORDING_INPUT) {
 		await logSmokeExportGpuDiagnostics();

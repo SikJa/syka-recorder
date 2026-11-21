@@ -28,8 +28,15 @@ async function fixture() {
 describe("portable package writer", () => {
 	it("opens after relocation with the original sources and package removed", async () => {
 		const { root, source } = await fixture();
-		const file = await writeTransferPackage({ parent: root, plan, assets: [{ id: "screen", role: "screen", sourcePath: source }], project: {}, cursorTelemetry: [] });
-		const relocated = await mkdtemp(path.join(os.tmpdir(), "syka-other-computer-")); temporary.push(relocated);
+		const file = await writeTransferPackage({
+			parent: root,
+			plan,
+			assets: [{ id: "screen", role: "screen", sourcePath: source }],
+			project: {},
+			cursorTelemetry: [],
+		});
+		const relocated = await mkdtemp(path.join(os.tmpdir(), "syka-other-computer-"));
+		temporary.push(relocated);
 		await cp(path.dirname(file), relocated, { recursive: true });
 		await rm(source);
 		await rm(path.dirname(file), { recursive: true });
@@ -50,11 +57,14 @@ describe("portable package writer", () => {
 			cursorTelemetry: [],
 		});
 		const directory = path.dirname(manifestPath);
-		await rm(path.join(directory, "media/screen.mp4"));
-		await expect(validateStudioProject(directory)).rejects.toThrow("Falta media/screen.mp4");
+		await rm(path.join(directory, "01 Grabación/Pantalla.mp4"));
+		await expect(validateStudioProject(directory)).rejects.toThrow(
+			"Falta 01 Grabación/Pantalla.mp4",
+		);
 	});
-	it("opens natively with a separate camera matte and shadow, omitting header-only audio", async () => {
+	it("opens natively with the camera as one editable video, omitting header-only audio", async () => {
 		const { root, source } = await fixture();
+		const prepared: string[] = [];
 		const emptyWav = Buffer.alloc(44);
 		emptyWav.write("RIFF");
 		emptyWav.writeUInt32LE(36, 4);
@@ -79,7 +89,6 @@ describe("portable package writer", () => {
 					cornerRadius: 70,
 					crop: { x: 0, y: 0, width: 1, height: 1 },
 					shadow: 0.3,
-					videoRect: { x: -40, y: 0, width: 320.5, height: 180.5 },
 				},
 			},
 			assets: [
@@ -89,25 +98,43 @@ describe("portable package writer", () => {
 			],
 			project: {},
 			cursorTelemetry: [],
+			prepareWebcam: async (inputPath, outputPath) => {
+				prepared.push(inputPath);
+				await writeFile(outputPath, "mirrored-camera");
+			},
 		});
 		const directory = path.dirname(file),
 			manifest = JSON.parse(await readFile(file, "utf8"));
 		await expect(validateStudioProject(directory)).resolves.toBeUndefined();
 		const code = await readFile(path.join(directory, "index.tsx"), "utf8");
-		expect(code).toContain('src={"media/webcam-mask.mask"}');
-		expect(code).toContain('src={"media/webcam-shadow.svg"}');
-		expect(manifest.plan.webcam.width).toBe(241);
-		expect(manifest.plan.webcam.height).toBe(181);
+		// The mirror is baked into a copy; the recording itself stays untouched.
+		expect(prepared.map((file) => path.basename(file))).toEqual(["Cámara original.mp4"]);
+		expect(manifest.plan.webcam).toMatchObject({
+			assetId: "webcam-studio",
+			sourceAssetId: "webcam",
+			width: 241,
+			height: 181,
+		});
+		expect(code).toMatch(
+			/<video id="webcam-0" name="Webcam 1" src=\{"01 Grabación\/Cámara.mp4"\} x=\{900\} y=\{400\} width=\{241\} height=\{181\} objectFit="cover" cornerRadius=/,
+		);
+		expect(code.match(/<shadow /g)).toHaveLength(2);
+		expect(code).not.toMatch(/webcam-mask|webcam-shadow|scaleX/);
 		expect(
-			manifest.plan.webcam.videoRect.width / manifest.plan.webcam.videoRect.height,
-		).toBeCloseTo(320.5 / 180.5);
+			await readFile(
+				path.join(directory, "03 Originales sin editar/Cámara original.mp4"),
+				"utf8",
+			),
+		).toBe("synthetic-test-bytes");
 		expect(code).not.toContain("<audio");
 		expect(JSON.parse(await readFile(path.join(directory, "package.json"), "utf8")).main).toBe(
 			"index.tsx",
 		);
 		for (const asset of manifest.assets)
 			expect(await hashFile(path.join(directory, asset.path))).toBe(asset.sha256);
-		expect(await readFile(path.join(directory, "media/mic.wav"))).toEqual(emptyWav);
+		expect(await readFile(path.join(directory, "01 Grabación/Micrófono.wav"))).toEqual(
+			emptyWav,
+		);
 	});
 	it("copies verified bytes, preserves unknown JSON and never changes originals", async () => {
 		const { root, source } = await fixture(),
@@ -124,7 +151,13 @@ describe("portable package writer", () => {
 		expect(await hashFile(source)).toBe(before);
 		expect(
 			JSON.parse(
-				await readFile(path.join(path.dirname(file), "recordly/current.recordly"), "utf8"),
+				await readFile(
+					path.join(
+						path.dirname(file),
+						"99 Archivos técnicos (no tocar)/proyecto.recordly",
+					),
+					"utf8",
+				),
 			),
 		).toEqual({ vendorUnknown: { future: [1, 2, 3] } });
 		expect(manifest.assets[0]).not.toHaveProperty("sourcePath");
@@ -164,5 +197,51 @@ describe("portable package writer", () => {
 				cursorTelemetry: [],
 			}),
 		).rejects.toThrow("IDs");
+	});
+	it("names the folder by date and keeps what a person needs in plain folders", async () => {
+		const { root, source } = await fixture();
+		const now = new Date(2026, 10, 21, 9, 5);
+		const write = () =>
+			writeTransferPackage({
+				parent: root,
+				plan: { ...plan, warnings: ["Aviso de prueba."] },
+				assets: [
+					{ id: "screen", role: "screen-with-cursor", sourcePath: source },
+					{ id: "original-screen", role: "original-screen", sourcePath: source },
+					{ id: "audio-1", role: "system", sourcePath: source },
+					{ id: "extra-audio-1", role: "added-audio", sourcePath: source },
+				],
+				project: {},
+				cursorTelemetry: [],
+				now,
+			});
+		const first = path.dirname(await write());
+		const second = path.dirname(await write());
+		expect(path.basename(first)).toBe("Prueba ñ - 2026-11-21 09-05");
+		expect(path.basename(second)).toBe("Prueba ñ - 2026-11-21 09-05 (2)");
+		expect((await readdir(first)).sort()).toEqual([
+			"01 Grabación",
+			"02 Finales",
+			"03 Originales sin editar",
+			"99 Archivos técnicos (no tocar)",
+			"LEEME.txt",
+			"assets.yml",
+			"index.tsx",
+			"manifest.json",
+			"package.json",
+		]);
+		expect((await readdir(path.join(first, "01 Grabación"))).sort()).toEqual([
+			"Audio agregado 1.mp4",
+			"Audio del sistema.mp4",
+			"Pantalla.mp4",
+		]);
+		expect(await readdir(path.join(first, "03 Originales sin editar"))).toEqual([
+			"Pantalla original.mp4",
+		]);
+		expect(await readdir(path.join(first, "02 Finales"))).toEqual([]);
+		const readme = await readFile(path.join(first, "LEEME.txt"), "utf8");
+		expect(readme).toContain("02 Finales: el video terminado, con fondo, cámara y zooms");
+		expect(readme).toContain("- Aviso de prueba.");
+		await expect(validateStudioProject(first)).resolves.toBeUndefined();
 	});
 });

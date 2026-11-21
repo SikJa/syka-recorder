@@ -236,6 +236,10 @@
 			"high": "High",
 			"original": "Original"
 		},
+		"double": {
+			"title": "Double resolution (2×)",
+			"hint": "Renders Original at {{dimensions}} for sharper zooms and text."
+		},
 		"fpsTitle": "FPS",
 		"loop": "Loop",
 		"outputDimensions": "Output: {{dimensions}}px",
@@ -258,5 +262,12 @@
 		"micLabel": "Source Mic",
 		"mixedLabel": "Source",
 		"deleteRegion": "Delete Audio"
+	},
+	"mcp": {
+		"title": "Agent control (MCP)",
+		"description": "Lets AI agents on this computer record, open, export and send projects to Studio.",
+		"copy": "Copy",
+		"copied": "Copied",
+		"copyFailed": "Could not copy the address."
 	}
 }

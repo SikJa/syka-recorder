@@ -32,7 +32,14 @@ Sin cuenta de Recordly. Grabaciones y proyectos locales. Podés usar Recorder so
 1. Terminá la grabación y ajustá el fondo, el encuadre y la cámara en Recorder.
 2. Tocá **Editar en Syka → Guardar y abrir en Studio**.
 3. Elegí una carpeta. Recorder guarda el proyecto y lo abre en tu instalación de Studio.
-4. Seguí editando: los medios, cortes, fondo, marcos, sombras, cámara y pistas de audio conservan su estructura editable.
+4. Seguí editando: los medios, cortes, fondo, marcos, sombras, cámara y pistas de audio conservan su estructura editable. La cámara llega como un video común: la movés, la achicás y le cambiás bordes y sombra en Studio.
+
+La carpeta del proyecto se ordena así:
+
+- `01 Grabación`: pantalla, cámara, fondo y audio, listos para editar.
+- `02 Finales`: el video terminado (si dejás activado *Incluir el video terminado*) y lo que exportes desde Studio.
+- `03 Originales sin editar`: la captura tal como salió.
+- `99 Archivos técnicos (no tocar)`: lo que Studio y Recorder necesitan por dentro.
 
 <p align="center"><img src="docs/media/transfer-dialog.png" width="760" alt="Opciones para guardar el proyecto y abrirlo en Syka Studio" /></p>
 <p align="center"><img src="docs/media/studio-project.png" width="100%" alt="La misma composición abierta en Syka Studio" /></p>
@@ -41,9 +48,17 @@ Sin cuenta de Recordly. Grabaciones y proyectos locales. Podés usar Recorder so
 
 **[Ver la demo completa · 37 segundos](https://github.com/SikJa/syka-recorder/releases/latest/download/Syka-Recorder-demo.mp4)** · [Qué se probó](docs/demo.md) · [Cómo funciona la transferencia](docs/studio-transfer.md)
 
-Si no tenés Studio, aparece un aviso para **descargarlo**, **buscar una instalación existente** o **seguir después**. El proyecto ya queda guardado. Recorder encuentra las instalaciones habituales y las carpetas de versión de Studio; una actualización normal de Studio no depende de rutas de la computadora del desarrollador.
+Si no tenés Studio, aparece un aviso para **descargarlo**, **buscar una instalación existente** o **seguir después**. El proyecto ya queda guardado. Si Studio ya está abierto, el proyecto se abre ahí. Si no, Recorder usa la instalación más nueva entre la que elegiste antes y las carpetas habituales.
 
 Compartí **la carpeta completa**, no sólo `manifest.json`. Los medios del proyecto nativo usan rutas relativas. No se copian cuentas ni perfiles. La compatibilidad se comprueba contra la versión de Studio disponible: cambios futuros de su formato o CLI pueden necesitar una actualización de Recorder.
+
+## Para agentes (MCP)
+
+Recorder trae un servidor MCP local para que un agente lo maneje: ver el estado, listar y abrir proyectos, grabar (iniciar, pausar, reanudar, reiniciar, detener), exportar MP4 y pasar un proyecto a Studio. Solo escucha en tu equipo y rechaza pedidos que vengan de páginas web. Se apaga en **Configuración → General**, donde también está la dirección.
+
+```bash
+claude mcp add --transport http syka-recorder http://127.0.0.1:4171/mcp
+```
 
 ## Instalación
 
@@ -59,7 +74,7 @@ Recorder consulta las releases estables de **este repositorio** al iniciar y per
 
 - Los dibujos quedan incorporados al video. Ctrl+Z quita la marca desde ese momento; no borra cuadros ya grabados.
 - Los atajos de dibujo necesitan foco en Recorder. El difuminado trabaja con una muestra estática.
-- Cursor y dibujos grabados son parte del video transferido. La webcam reactiva al zoom se convierte en una capa fija; el diálogo explica las diferencias.
+- Cursor y dibujos grabados son parte del video transferido. En Studio la cámara se achica con el zoom igual que en Recorder; sus esquinas usan arcos de círculo, muy parecidos a la forma de Recorder.
 - La versión inicial se probó localmente. Una compilación exitosa no reemplaza las pruebas en distintos equipos, cámaras y dispositivos de audio.
 
 ## Desarrollo y contribuciones

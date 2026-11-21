@@ -13,6 +13,7 @@ export function MicPopover({
 	disabled,
 	systemAudioEnabled,
 	onToggleSystemAudio,
+	showDefaultOutputHint,
 	microphoneEnabled,
 	onDisableMicrophone,
 	devices,
@@ -24,6 +25,7 @@ export function MicPopover({
 	disabled?: boolean;
 	systemAudioEnabled: boolean;
 	onToggleSystemAudio: () => void;
+	showDefaultOutputHint?: boolean;
 	microphoneEnabled: boolean;
 	onDisableMicrophone: () => void;
 	devices: DeviceOption[];
@@ -51,7 +53,7 @@ export function MicPopover({
 			trigger={trigger}
 			align="start"
 		>
-			<div className={styles.ddLabel}>{t("recording.microphone")}</div>
+			<div className={styles.ddLabel}>{t("recording.systemAudio")}</div>
 			<DropdownItem
 				icon={
 					systemAudioEnabled ? <SpeakerHighIcon size={16} /> : <SpeakerXIcon size={16} />
@@ -63,6 +65,13 @@ export function MicPopover({
 					? t("recording.disableSystemAudio")
 					: t("recording.enableSystemAudio")}
 			</DropdownItem>
+			{/* The Windows loopback always follows the default output device. */}
+			{showDefaultOutputHint && (
+				<div className="px-3 pb-2 pt-1 text-xs text-[var(--launch-text-muted)]">
+					{t("recording.systemAudioDefaultOutput")}
+				</div>
+			)}
+			<div className={styles.ddLabel}>{t("recording.microphone")}</div>
 			{microphoneEnabled && (
 				<DropdownItem
 					icon={<MicrophoneSlashIcon size={16} />}

@@ -8,6 +8,7 @@ import {
 	MinusIcon,
 	MonitorIcon,
 	RecordIcon,
+	SpeakerHighIcon,
 	TimerIcon,
 	VideoCameraIcon,
 	VideoCameraSlashIcon,
@@ -31,6 +32,7 @@ import { useHudInputShape } from "./hooks/useHudInputShape";
 import { useLaunchHudInteractionState } from "./hooks/useLaunchHudInteractionState";
 import { useLaunchWindowActions } from "./hooks/useLaunchWindowActions";
 import { useLaunchWindowSystemState } from "./hooks/useLaunchWindowSystemState";
+import { useMcpRecorderBridge } from "./hooks/useMcpRecorderBridge";
 import { useRecordingTimer } from "./hooks/useRecordingTimer";
 import { useWebcamPreviewOverlay } from "./hooks/useWebcamPreviewOverlay";
 import styles from "./LaunchWindow.module.css";
@@ -61,6 +63,7 @@ function LaunchWindowContent() {
 	const t = useScopedT("launch");
 	const { openId } = useLaunchPopoverCoordinator();
 
+	const recorder = useScreenRecorder();
 	const {
 		recording,
 		paused,
@@ -68,6 +71,7 @@ function LaunchWindowContent() {
 		countdownActive,
 		starting,
 		toggleRecording,
+		restartRecording,
 		pauseRecording,
 		resumeRecording,
 		cancelRecording,
@@ -85,7 +89,8 @@ function LaunchWindowContent() {
 		countdownDelay,
 		setCountdownDelay,
 		preparePermissions,
-	} = useScreenRecorder();
+	} = recorder;
+	useMcpRecorderBridge(recorder);
 
 	const { elapsed, formatTime } = useRecordingTimer(recording, paused);
   const drawing = useRecordingDrawing(recording);
@@ -278,6 +283,7 @@ function LaunchWindowContent() {
 			elapsed={elapsed}
 			onPauseResume={paused ? resumeRecording : pauseRecording}
 			onStopRecording={toggleRecording}
+			onRestartRecording={() => void restartRecording()}
 			onHideHud={drawing.minimize}
 			onCancelRecording={cancelRecording}
 			formatTime={formatTime}
@@ -312,6 +318,7 @@ function LaunchWindowContent() {
 				disabled={recording}
 				systemAudioEnabled={systemAudioEnabled}
 				onToggleSystemAudio={() => setSystemAudioEnabled(!systemAudioEnabled)}
+				showDefaultOutputHint={platform === "win32"}
 				microphoneEnabled={microphoneEnabled}
 				onDisableMicrophone={() => setMicrophoneEnabled(false)}
 				devices={devices}
@@ -330,9 +337,11 @@ function LaunchWindowContent() {
 						title={
 							microphoneEnabled
 								? t("recording.disableMicrophone")
-								: t("recording.enableMicrophone")
+								: systemAudioEnabled
+									? t("recording.systemAudio")
+									: t("recording.enableMicrophone")
 						}
-						className={`${styles.compactAction} ${microphoneEnabled ? "text-accent" : ""}`}
+						className={`${styles.compactAction} ${microphoneEnabled || systemAudioEnabled ? "text-accent" : ""}`}
 					>
 						{microphoneEnabled ? (
 							<MicrophoneIcon
@@ -340,6 +349,9 @@ function LaunchWindowContent() {
 								className="size-5"
 								size={18}
 							/>
+						) : systemAudioEnabled ? (
+							// Desktop audio alone still records sound; don't show it as muted.
+							<SpeakerHighIcon weight="fill" className="size-5" size={18} />
 						) : (
 							<MicrophoneSlashIcon className="size-5" />
 						)}

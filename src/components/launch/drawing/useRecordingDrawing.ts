@@ -197,6 +197,14 @@ export function useRecordingDrawing(recording: boolean) {
 			}),
 		[],
 	);
+	// Clicks outside the HUD land on the desktop and never reach this window, so
+	// losing focus is the only signal that the user moved on from the panel.
+	useEffect(() => {
+		if (!panel) return;
+		const close = () => setPanel(false);
+		window.addEventListener("blur", close);
+		return () => window.removeEventListener("blur", close);
+	}, [panel]);
 	useEffect(() => window.electronAPI?.onRecordingControlsRestore?.(() => setCompact(false)), []);
 	useEffect(() => {
 		if (!recording) return;

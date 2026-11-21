@@ -230,6 +230,10 @@
 			"high": "Hoog",
 			"original": "Origineel"
 		},
+		"double": {
+			"title": "Dubbele resolutie (2×)",
+			"hint": "Rendert Origineel op {{dimensions}} voor scherpere zooms en tekst."
+		},
 		"fpsTitle": "FPS",
 		"loop": "Herhalen",
 		"outputDimensions": "Uitvoer: {{dimensions}}px",
@@ -258,5 +262,12 @@
 		"title": "Updates",
 		"experimental": "Experimentele updates",
 		"saveFailed": "Kan het updatekanaal niet wijzigen."
+	},
+	"mcp": {
+		"title": "Besturing door agents (MCP)",
+		"description": "Laat AI-agents op deze computer opnemen en projecten openen, exporteren en naar Studio sturen.",
+		"copy": "Kopiëren",
+		"copied": "Gekopieerd",
+		"copyFailed": "Het adres kon niet worden gekopieerd."
 	}
 }

@@ -47,6 +47,7 @@ import { SliderControl } from "./SliderControl";
 import { WallpaperGrid } from "./WallpaperGrid";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { SettingsRow } from "./SettingsRow";
+import { McpServerSettings } from "./McpServerSettings";
 import type {
 	AnnotationRegion,
 	AnnotationType,
@@ -1927,6 +1928,7 @@ function SettingsPanelContent({
 					</section>
 				</SettingsCategory>
 				<SettingsCategory category="general">
+					<McpServerSettings />
 					<SettingsRow title={t("editor.keyboardShortcuts.title")}>
 						<Button variant="secondary" size="sm" onClick={openShortcutsConfig}>
 							{t("editor.keyboardShortcuts.customize")}

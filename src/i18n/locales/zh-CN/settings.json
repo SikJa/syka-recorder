@@ -230,6 +230,10 @@
 			"high": "高",
 			"original": "原始"
 		},
+		"double": {
+			"title": "双倍分辨率 (2×)",
+			"hint": "以 {{dimensions}} 渲染原始画质，让缩放和文字更清晰。"
+		},
 		"fpsTitle": "帧率",
 		"loop": "循环",
 		"outputDimensions": "输出：{{dimensions}}px",
@@ -258,5 +262,12 @@
 		"title": "更新",
 		"experimental": "实验性更新",
 		"saveFailed": "无法更改更新频道。"
+	},
+	"mcp": {
+		"title": "智能体控制 (MCP)",
+		"description": "允许此电脑上的 AI 智能体录制、打开、导出项目并发送到 Studio。",
+		"copy": "复制",
+		"copied": "已复制",
+		"copyFailed": "无法复制地址。"
 	}
 }

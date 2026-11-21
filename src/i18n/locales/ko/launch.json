@@ -26,6 +26,8 @@
 		"window": "창",
 		"noSourcesFound": "사용 가능한 소스를 찾을 수 없습니다",
 		"microphone": "마이크",
+		"systemAudio": "시스템 오디오",
+		"systemAudioDefaultOutput": "Windows 기본 오디오 출력에서 재생되는 소리를 녹음합니다.",
 		"turnOffMicrophone": "마이크 끄기",
 		"selectMicToEnable": "사용할 마이크를 선택하세요",
 		"noMicrophonesFound": "마이크를 찾을 수 없습니다",
@@ -42,6 +44,7 @@
 		"resume": "계속",
 		"pause": "일시 정지",
 		"stop": "중지",
+		"restart": "녹화 다시 시작",
 		"cancel": "취소",
 		"more": "더 보기",
 		"update": {

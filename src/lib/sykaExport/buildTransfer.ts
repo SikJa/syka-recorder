@@ -9,6 +9,7 @@ import {
 	getWebcamCornerRadiusPx,
 	getWebcamOverlayDimensionsPx,
 	getWebcamOverlayPosition,
+	getWebcamPositionForPreset,
 	scaleWebcamOverlayPixels,
 } from "@/components/video-editor/webcamOverlay";
 import {
@@ -17,8 +18,9 @@ import {
 } from "@/lib/exporter/audioProcessorShared";
 import { resolveSourceTrackRoutingPolicy } from "@/lib/exporter/sourceTrackRoutingPolicy";
 import type { TransferAssetInput, TransferPlan } from "./contract";
+import { fitChannel } from "./keyframeFit";
 import { buildZoomBlocks } from "./zoomBlocks";
-import { sampleZoomCamera } from "./zoomCamera";
+import { type CameraSample, sampleZoomCamera } from "./zoomCamera";
 import {
 	computePaddedLayout,
 	scalePreviewBorderRadius,
@@ -104,23 +106,24 @@ export function buildTransfer(input: BuildTransferInput): {
 	const warnings = [
 		"El cursor y el recorte de pantalla quedan dibujados en el video; se conserva el original.",
 	];
+	const cameraSamples = sampleZoomCamera({
+		zoomRegions: input.zoomRegions,
+		clipRegions: clips,
+		cursorTelemetry: input.cursorTelemetry,
+		settings: editor,
+		frameWidth: width,
+		frameHeight: height,
+		baseMask: screen,
+		durationMs,
+		frameRate,
+	});
 	const plan: TransferPlan = {
 		name: input.name,
 		canvas: { width, height, frameRate, durationMs },
 		screen,
 		clips,
 		zooms: buildZoomBlocks(
-			sampleZoomCamera({
-				zoomRegions: input.zoomRegions,
-				clipRegions: clips,
-				cursorTelemetry: input.cursorTelemetry,
-				settings: editor,
-				frameWidth: width,
-				frameHeight: height,
-				baseMask: screen,
-				durationMs,
-				frameRate,
-			}),
+			cameraSamples,
 			input.zoomRegions,
 			width,
 			height,
@@ -176,7 +179,10 @@ export function buildTransfer(input: BuildTransferInput): {
 						editor.defaultSourceAudioTrackSettings;
 					// Recorder previews source tracks through HTMLAudioElement (maximum 1).
 					// Preserve what was heard there instead of adding hidden normalization gain in Studio.
-					return [clip.id, clip.muted ? 0 : Math.min(1, resolveSourceTrackGain(settings, settingsId))];
+					return [
+						clip.id,
+						clip.muted ? 0 : Math.min(1, resolveSourceTrackGain(settings, settingsId)),
+					];
 				}),
 			),
 		});
@@ -234,6 +240,14 @@ export function buildTransfer(input: BuildTransferInput): {
 			legacyCorner: webcam.corner,
 		});
 		assets.push({ id: "webcam", role: "webcam", sourcePath: webcam.sourcePath! });
+		const anchor =
+			webcam.positionPreset === "custom"
+				? {
+						x: Math.min(1, Math.max(0, webcam.positionX)),
+						y: Math.min(1, Math.max(0, webcam.positionY)),
+					}
+				: getWebcamPositionForPreset(webcam.positionPreset || webcam.corner);
+		const zoomScale = webcam.reactToZoom ? fitWebcamZoomScale(cameraSamples, size) : undefined;
 		plan.webcam = {
 			assetId: "webcam",
 			delayMs: webcam.timeOffsetMs,
@@ -244,31 +258,33 @@ export function buildTransfer(input: BuildTransferInput): {
 			crop: webcam.cropRegion,
 			visibleRanges: webcam.visibleRanges,
 			shadow: webcam.shadow,
+			anchor,
+			...(zoomScale ? { zoomScale } : {}),
 		};
-		if (input.webcamDimensions) {
-			const source = input.webcamDimensions;
-			const crop = webcam.cropRegion;
-			const scale = Math.max(
-				size.width / (source.width * crop.width),
-				size.height / (source.height * crop.height),
-			);
-			plan.webcam.videoRect = {
-				x:
-					(size.width - source.width * crop.width * scale) / 2 -
-					crop.x * source.width * scale,
-				y:
-					(size.height - source.height * crop.height * scale) / 2 -
-					crop.y * source.height * scale,
-				width: source.width * scale,
-				height: source.height * scale,
-			};
-		}
-		if (webcam.reactToZoom)
-			warnings.push("La webcam queda en una capa fija; no reacciona al zoom de pantalla.");
 	}
 	if (editor.annotationRegions.length || editor.autoCaptions.length)
 		warnings.push(
 			"Anotaciones y subtítulos permanecen en el proyecto original; agregalos en Syka.",
 		);
 	return { plan, assets };
+}
+
+/** Recorder's overlay floor (webcamOverlay.ts), in output pixels. */
+const MIN_WEBCAM_SIZE_PX = 56;
+
+/**
+ * The camera shrinks by the inverse of the screen zoom, as Recorder's preview
+ * does, down to its minimum size. Null when no zoom changes the camera.
+ */
+export function fitWebcamZoomScale(
+	samples: CameraSample[],
+	size: { width: number; height: number },
+) {
+	const floor = Math.min(1, MIN_WEBCAM_SIZE_PX / Math.max(1, Math.min(size.width, size.height)));
+	const points = samples.map((sample, frame) => ({
+		frame,
+		value: Math.min(1, Math.max(floor, 1 / Math.max(1, sample.scale))),
+	}));
+	if (points.length < 2 || points.every((point) => point.value > 0.9999)) return null;
+	return fitChannel(points, 0.25 / Math.max(size.width, size.height));
 }

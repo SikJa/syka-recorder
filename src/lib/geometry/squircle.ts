@@ -13,7 +13,7 @@ interface SquirclePoint {
 	y: number;
 }
 
-const SQUIRCLE_EXPONENT = 4.5;
+export const SQUIRCLE_EXPONENT = 4.5;
 const SQUIRCLE_SEGMENTS_PER_CORNER = 10;
 
 function clamp(value: number, min: number, max: number) {

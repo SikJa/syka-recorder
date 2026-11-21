@@ -564,6 +564,13 @@ describe("user preferences stay independent from projects and presets", () => {
 			"link",
 		);
 	});
+	it("keeps the double export tier and still loads older quality values", () => {
+		expect(normalizeEditorPreferences({ exportQuality: "double" }).exportQuality).toBe("double");
+		expect(normalizeEditorPreferences({ exportQuality: "good" }).exportQuality).toBe("good");
+		expect(
+			normalizeEditorPreferences({ exportQuality: "ultra" as never }).exportQuality,
+		).toBe("source");
+	});
 	it("drops export settings and machine paths from legacy presets", () => {
 		vi.stubGlobal("localStorage", createStorageMock());
 		const snapshot = {

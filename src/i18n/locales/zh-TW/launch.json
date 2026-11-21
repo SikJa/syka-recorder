@@ -26,6 +26,8 @@
 		"window": "視窗",
 		"noSourcesFound": "找不到可錄製的來源",
 		"microphone": "麥克風",
+		"systemAudio": "系統音訊",
+		"systemAudioDefaultOutput": "錄製 Windows 預設音訊輸出中播放的聲音。",
 		"turnOffMicrophone": "關閉麥克風",
 		"selectMicToEnable": "選擇要啟用的麥克風",
 		"noMicrophonesFound": "找不到麥克風",
@@ -42,6 +44,7 @@
 		"resume": "繼續",
 		"pause": "暫停",
 		"stop": "停止",
+		"restart": "重新錄製",
 		"cancel": "取消",
 		"more": "更多",
 		"update": {

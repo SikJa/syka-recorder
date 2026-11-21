@@ -230,6 +230,10 @@
 			"high": "高",
 			"original": "原始"
 		},
+		"double": {
+			"title": "雙倍解析度 (2×)",
+			"hint": "以 {{dimensions}} 算繪原始畫質，讓縮放與文字更清晰。"
+		},
 		"fpsTitle": "FPS",
 		"loop": "循環",
 		"outputDimensions": "輸出：{{dimensions}}px",
@@ -258,5 +262,12 @@
 		"title": "更新",
 		"experimental": "實驗性更新",
 		"saveFailed": "無法變更更新頻道。"
+	},
+	"mcp": {
+		"title": "代理程式控制 (MCP)",
+		"description": "允許此電腦上的 AI 代理程式錄製、開啟、匯出專案並傳送至 Studio。",
+		"copy": "複製",
+		"copied": "已複製",
+		"copyFailed": "無法複製位址。"
 	}
 }

@@ -66,11 +66,37 @@ function readPinnedMedia(): string[] {
 		: [];
 }
 
+const EDITOR_PREFERENCES_SETTING = "recordly.editor.preferences";
+
+/**
+ * Backgrounds saved in the editor preferences are the user's own picks too.
+ * Ones chosen before pinning existed, or carried over from another profile,
+ * are not in the pinned list; without approval the exporter cannot open a
+ * video background with its decoder and drops to seeking a media element for
+ * every frame, several times slower.
+ */
+function readPreferredBackgroundMedia(): string[] {
+	const stored = readAppSetting(EDITOR_PREFERENCES_SETTING);
+	if (!stored || typeof stored !== "object") return [];
+	const { wallpaper, customWallpapers } = stored as {
+		wallpaper?: unknown;
+		customWallpapers?: unknown;
+	};
+	return [wallpaper, ...(Array.isArray(customWallpapers) ? customWallpapers : [])]
+		.filter((entry): entry is string => typeof entry === "string")
+		.slice(0, MAX_PINNED_MEDIA)
+		.filter((entry) => path.isAbsolute(entry) && isSupportedLocalMediaPath(entry));
+}
+
+function readUserPickedMedia(): string[] {
+	return [...readPinnedMedia(), ...readPreferredBackgroundMedia()];
+}
+
 /** Files the user picked (backgrounds, audio) stay readable across projects and restarts. */
 function restorePinnedMedia() {
 	if (pinnedMediaLoaded) return;
 	pinnedMediaLoaded = true;
-	for (const entry of readPinnedMedia()) approvedLocalReadPaths.add(normalizePath(entry));
+	for (const entry of readUserPickedMedia()) approvedLocalReadPaths.add(normalizePath(entry));
 }
 
 export function pinApprovedLocalReadPath(filePath: string) {
@@ -211,7 +237,7 @@ export async function replaceApprovedSessionLocalReadPaths(
 
 	approvedLocalReadPaths.clear();
 	// Backgrounds the user picked outlive a change of project or recording.
-	for (const entry of readPinnedMedia()) nextApprovedPaths.add(normalizePath(entry));
+	for (const entry of readUserPickedMedia()) nextApprovedPaths.add(normalizePath(entry));
 	for (const approvedPath of nextApprovedPaths) {
 		approvedLocalReadPaths.add(approvedPath);
 	}

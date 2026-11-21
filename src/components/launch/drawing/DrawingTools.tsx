@@ -1,4 +1,11 @@
-import { useLayoutEffect, useRef, useState, type ComponentType, type RefObject } from "react";
+import {
+	useLayoutEffect,
+	useRef,
+	useState,
+	type ComponentType,
+	type PointerEvent,
+	type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import {
 	ArrowCounterClockwise,
@@ -23,7 +30,12 @@ import {
 import type { Tool } from "./screen-annotations";
 import type { RecordingDrawing } from "./useRecordingDrawing";
 import { ColorPicker } from "./ColorPicker";
+import { anchoredPanelPosition, clampPanelPosition, type PanelPoint } from "./panelPosition";
 import styles from "./DrawingTools.module.css";
+
+// Where the user last dropped the palette. Module scope keeps it across
+// closing/reopening the panel and across recordings until the HUD reloads.
+let placedPosition: PanelPoint | null = null;
 
 export const DRAWING_TOOLS: Record<
 	Tool,
@@ -107,27 +119,27 @@ export function DrawingTools({
 	const [group, setGroup] = useState<"stroke" | "shape" | null>(null);
 	const [customColor, setCustomColor] = useState(false);
 	const panel = useRef<HTMLDivElement>(null);
-	const [position, setPosition] = useState({ x: 8, y: 8 });
+	const [position, setPosition] = useState(placedPosition ?? { x: 8, y: 8 });
+	const [dragging, setDragging] = useState(false);
+	const drag = useRef<{ pointerId: number; dx: number; dy: number } | null>(null);
 	useLayoutEffect(() => {
 		if (!d.panel) return;
 		let frame: number | null = null;
 		const update = () => {
 			frame = null;
-			const a = anchor.current?.getBoundingClientRect(),
-				p = panel.current?.getBoundingClientRect();
-			if (!a || !p) return;
-			const x = Math.max(
-				8,
-				Math.min(a.x + (a.width - p.width) / 2, innerWidth - p.width - 8),
-			);
-			const y = Math.max(
-				8,
-				Math.min(
-					a.y - p.height - 10 < 8 ? a.bottom + 10 : a.y - p.height - 10,
-					innerHeight - p.height - 8,
-				),
-			);
-			setPosition((old) => (old.x === x && old.y === y ? old : { x, y }));
+			const p = panel.current?.getBoundingClientRect();
+			if (!p || drag.current) return;
+			const viewport = { width: innerWidth, height: innerHeight };
+			let next: PanelPoint;
+			if (placedPosition) {
+				// Once moved by hand the palette ignores the bar; only keep it on screen.
+				next = placedPosition = clampPanelPosition(placedPosition, p, viewport);
+			} else {
+				const a = anchor.current?.getBoundingClientRect();
+				if (!a) return;
+				next = anchoredPanelPosition(a, p, viewport);
+			}
+			setPosition((old) => (old.x === next.x && old.y === next.y ? old : next));
 		};
 		const schedule = () => {
 			if (frame === null) frame = requestAnimationFrame(update);
@@ -149,6 +161,43 @@ export function DrawingTools({
 		if (!d.panel) setGroup(null);
 	}, [d.panel]);
 	if (!d.panel || d.compact) return null;
+	// The heading is the drag handle. data-hud-drag-handle makes the native
+	// input shape cover the whole window during the gesture, so the panel is
+	// never clipped to its previous bounds while it moves.
+	const startDrag = (event: PointerEvent<HTMLDivElement>) => {
+		if (event.button !== 0 || drag.current || (event.target as Element).closest("button"))
+			return;
+		const p = panel.current?.getBoundingClientRect();
+		if (!p) return;
+		event.preventDefault();
+		event.currentTarget.setPointerCapture(event.pointerId);
+		drag.current = {
+			pointerId: event.pointerId,
+			dx: event.clientX - p.left,
+			dy: event.clientY - p.top,
+		};
+		setDragging(true);
+	};
+	const moveDrag = (event: PointerEvent<HTMLDivElement>) => {
+		const state = drag.current,
+			p = panel.current?.getBoundingClientRect();
+		if (!state || state.pointerId !== event.pointerId || !p) return;
+		const next = clampPanelPosition(
+			{ x: event.clientX - state.dx, y: event.clientY - state.dy },
+			p,
+			{ width: innerWidth, height: innerHeight },
+		);
+		placedPosition = next;
+		setPosition(next);
+	};
+	const endDrag = (event: PointerEvent<HTMLDivElement>) => {
+		if (drag.current?.pointerId !== event.pointerId) return;
+		if (event.type === "pointerup") moveDrag(event);
+		drag.current = null;
+		setDragging(false);
+		if (event.currentTarget.hasPointerCapture(event.pointerId))
+			event.currentTarget.releasePointerCapture(event.pointerId);
+	};
 	const toolButton = (tool: Tool, label: string) => {
 		const Icon = DRAWING_TOOLS[tool].icon;
 		return (
@@ -174,7 +223,17 @@ export function DrawingTools({
 			role="region"
 			aria-label="Herramientas de dibujo"
 		>
-			<div className={styles.heading}>
+			<div
+				className={styles.heading}
+				data-hud-drag-handle
+				data-dragging={dragging}
+				title="Arrastrá para mover el panel"
+				onPointerDown={startDrag}
+				onPointerMove={moveDrag}
+				onPointerUp={endDrag}
+				onPointerCancel={endDrag}
+				onLostPointerCapture={endDrag}
+			>
 				<span>Dibujar en pantalla</span>
 				<button
 					type="button"

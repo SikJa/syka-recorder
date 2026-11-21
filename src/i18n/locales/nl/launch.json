@@ -26,6 +26,8 @@
 		"window": "Venster",
 		"noSourcesFound": "Geen bronnen gevonden",
 		"microphone": "Microfoon",
+		"systemAudio": "Systeemaudio",
+		"systemAudioDefaultOutput": "Neemt op wat via de standaard audio-uitvoer van Windows speelt.",
 		"turnOffMicrophone": "Microfoon uitschakelen",
 		"selectMicToEnable": "Selecteer een microfoon om in te schakelen",
 		"noMicrophonesFound": "Geen microfoons gevonden",
@@ -42,6 +44,7 @@
 		"resume": "Hervatten",
 		"pause": "Pauzeren",
 		"stop": "Stoppen",
+		"restart": "Opname opnieuw starten",
 		"cancel": "Annuleren",
 		"more": "Meer",
 		"update": {

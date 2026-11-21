@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import {
 	lstat,
@@ -21,7 +21,15 @@ import type {
 	TransferPlan,
 } from "../../src/lib/sykaExport/contract";
 import { writeStudioProject } from "./studioProject";
-import { alignWebcamToPixels, webcamAppearance, screenAppearance } from "./webcamAppearance";
+import {
+	PACKAGE_FOLDERS,
+	packageFileName,
+	packageFolderName,
+	packageReadme,
+	uniquePath,
+} from "./packageLayout";
+import { alignWebcamToPixels, screenAppearance } from "./webcamAppearance";
+import { needsPreparedWebcam, prepareWebcamFootage } from "./webcamFootage";
 
 const safeId = /^[a-z][a-z0-9-]{0,63}$/;
 export async function hashFile(file: string): Promise<string> {
@@ -49,6 +57,10 @@ export async function writeTransferPackage(input: {
 	cursorTelemetry: unknown;
 	originalProjectPath?: string | null;
 	signal?: AbortSignal;
+	/** Folder name timestamp; replaceable in tests. */
+	now?: Date;
+	/** Replaceable in tests; defaults to FFmpeg. */
+	prepareWebcam?: (inputPath: string, outputPath: string, signal?: AbortSignal) => Promise<void>;
 }): Promise<string> {
 	const parent = await realpath(input.parent);
 	if (!(await stat(parent)).isDirectory()) throw new Error("Invalid destination folder");
@@ -67,20 +79,24 @@ export async function writeTransferPackage(input: {
 			.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")
 			.replace(/[. ]+$/g, "")
 			.slice(0, 65) || "Captura";
-	const destination = path.join(parent, `${safeName}-${randomUUID()}.syka-recorder`);
+	const createdAt = input.now ?? new Date();
 	const staging = await mkdtemp(path.join(parent, ".syka-transfer-"));
 	const assets: TransferAsset[] = [];
 	const plan = structuredClone(input.plan);
+	const taken = new Set<string>();
+	const preparedWebcam = plan.webcam ? needsPreparedWebcam(plan.webcam) : false;
+	const place = (asset: { id: string; role: string }, extension: string) =>
+		uniquePath(packageFileName(asset, extension, { preparedWebcam }), taken);
 	try {
-		await mkdir(path.join(staging, "media"));
-		await mkdir(path.join(staging, "recordly"));
+		for (const folder of Object.values(PACKAGE_FOLDERS))
+			await mkdir(path.join(staging, folder));
 		for (const asset of input.assets) {
 			input.signal?.throwIfAborted();
 			await regularFile(asset.sourcePath);
 			const before = await stat(asset.sourcePath);
 			const extension = path.extname(asset.sourcePath).toLowerCase();
 			if (!/^\.[a-z0-9]{1,8}$/.test(extension)) throw new Error("Invalid media extension");
-			const relative = `media/${asset.id}${extension}`;
+			const relative = place(asset, extension);
 			const target = path.join(staging, relative);
 			const sourceHash = createHash("sha256");
 			await pipeline(
@@ -118,12 +134,19 @@ export async function writeTransferPackage(input: {
 			const appearance = await screenAppearance(plan.screen, plan.canvas.width);
 			const shadow = appearance.shadow ? Buffer.from(appearance.shadow) : undefined;
 			const generated = [
-				{ id: "screen-mask", path: "media/screen-mask.mask", bytes: appearance.mask },
+				{
+					id: "screen-mask",
+					path: place({ id: "screen-mask", role: "screen-appearance" }, ".mask"),
+					bytes: appearance.mask,
+				},
 				...(shadow
 					? [
 							{
 								id: "screen-shadow",
-								path: "media/screen-shadow.svg",
+								path: place(
+									{ id: "screen-shadow", role: "screen-appearance" },
+									".svg",
+								),
 								bytes: shadow,
 							},
 						]
@@ -148,48 +171,49 @@ export async function writeTransferPackage(input: {
 			}
 		}
 		if (plan.webcam) {
-			plan.webcam = alignWebcamToPixels(plan.webcam);
-			const appearance = await webcamAppearance(plan.webcam);
-			const shadow = appearance.shadow ? Buffer.from(appearance.shadow) : undefined;
-			const generated = [
-				{ id: "webcam-mask", path: "media/webcam-mask.mask", bytes: appearance.mask },
-				...(shadow
-					? [
-							{
-								id: "webcam-shadow",
-								path: "media/webcam-shadow.svg",
-								bytes: shadow,
-							},
-						]
-					: []),
-			];
-			for (const asset of generated) {
+			const webcam = alignWebcamToPixels(plan.webcam);
+			plan.webcam = webcam;
+			const recording = assets.find((asset) => asset.id === webcam.assetId);
+			if (!recording) throw new Error("Missing webcam footage");
+			if (needsPreparedWebcam(webcam)) {
 				input.signal?.throwIfAborted();
-				await writeFile(path.join(staging, asset.path), asset.bytes, { flag: "wx" });
+				const prepared = {
+					id: "webcam-studio",
+					path: place({ id: "webcam-studio", role: "webcam-studio" }, ".mp4"),
+				};
+				const prepare =
+					input.prepareWebcam ??
+					(async (inputPath: string, outputPath: string, signal?: AbortSignal) => {
+						const { getFfmpegBinaryPath } = await import("../ipc/ffmpeg/binary");
+						await prepareWebcamFootage({
+							ffmpegPath: getFfmpegBinaryPath(),
+							inputPath,
+							outputPath,
+							webcam,
+							signal,
+						});
+					});
+				const target = path.join(staging, prepared.path);
+				await prepare(path.join(staging, recording.path), target, input.signal);
 				assets.push({
-					id: asset.id,
-					path: asset.path,
-					role: "webcam-appearance",
-					size: asset.bytes.length,
-					sha256: createHash("sha256").update(asset.bytes).digest("hex"),
+					...prepared,
+					role: "webcam-studio",
+					size: (await stat(target)).size,
+					sha256: await hashFile(target),
 				});
-			}
-			plan.webcam.maskAssetId = "webcam-mask";
-			plan.webcam.maskPadding = appearance.maskPadding;
-			if (appearance.shadow) {
-				plan.webcam.shadowAssetId = "webcam-shadow";
-				plan.webcam.shadowPadding = appearance.padding;
+				webcam.sourceAssetId = recording.id;
+				webcam.assetId = prepared.id;
 			}
 		}
 		const metadata = [
 			{
 				id: "project-snapshot",
-				path: "recordly/current.recordly",
+				path: `${PACKAGE_FOLDERS.technical}/proyecto.recordly`,
 				text: JSON.stringify(input.project, null, 2),
 			},
 			{
 				id: "cursor-telemetry",
-				path: "recordly/cursor.json",
+				path: `${PACKAGE_FOLDERS.technical}/cursor.json`,
 				text: JSON.stringify(input.cursorTelemetry),
 			},
 		];
@@ -199,7 +223,7 @@ export async function writeTransferPackage(input: {
 				throw new Error("Project JSON is too large");
 			metadata.push({
 				id: "original-project",
-				path: "recordly/original.recordly",
+				path: `${PACKAGE_FOLDERS.technical}/proyecto original.recordly`,
 				text: await readFile(input.originalProjectPath, "utf8"),
 			});
 		}
@@ -220,7 +244,7 @@ export async function writeTransferPackage(input: {
 		const manifest: TransferManifest = {
 			format: "syka-recorder-transfer",
 			version: 1,
-			createdAt: new Date().toISOString(),
+			createdAt: createdAt.toISOString(),
 			plan,
 			assets,
 		};
@@ -228,16 +252,25 @@ export async function writeTransferPackage(input: {
 			flag: "wx",
 		});
 		await writeStudioProject(staging, manifest);
-		await writeFile(
-			path.join(staging, "README.txt"),
-			"Abrí esta carpeta como proyecto en Syka Studio, o usá Abrir en Syka Studio desde Recorder.\n\n" +
-				"Conservá la carpeta completa, incluidos index.tsx, assets.yml y media. Adjuntar manifest.json al chat sólo adjunta la descripción; no importa los videos.\n\n" +
-				input.plan.warnings.join("\n") +
-				"\n\nLos archivos .recordly conservan referencias al equipo original. No se publican automáticamente.\n",
-			{ flag: "wx" },
-		);
-		await rename(staging, destination);
-		return path.join(destination, "manifest.json");
+		await writeFile(path.join(staging, "LEEME.txt"), packageReadme(input.plan.warnings), {
+			flag: "wx",
+		});
+		// Same name and minute as an earlier package: number it, like Studio does.
+		for (let attempt = 1; ; attempt++) {
+			const destination = path.join(parent, packageFolderName(safeName, createdAt, attempt));
+			try {
+				await rename(staging, destination);
+				return path.join(destination, "manifest.json");
+			} catch (error) {
+				const code = (error as NodeJS.ErrnoException).code ?? "";
+				const exists = await stat(destination).then(
+					() => true,
+					() => false,
+				);
+				if (!exists || attempt >= 99 || !["EEXIST", "ENOTEMPTY", "EPERM"].includes(code))
+					throw error;
+			}
+		}
 	} catch (error) {
 		// This operation alone created this random staging directory under the chosen parent.
 		if (

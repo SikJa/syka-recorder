@@ -26,6 +26,8 @@
 		"window": "窗口",
 		"noSourcesFound": "未找到源",
 		"microphone": "麦克风",
+		"systemAudio": "系统音频",
+		"systemAudioDefaultOutput": "录制 Windows 默认音频输出中播放的声音。",
 		"turnOffMicrophone": "关闭麦克风",
 		"selectMicToEnable": "选择一个麦克风以启用",
 		"noMicrophonesFound": "未找到麦克风",
@@ -42,6 +44,7 @@
 		"resume": "恢复",
 		"pause": "暂停",
 		"stop": "停止",
+		"restart": "重新录制",
 		"cancel": "取消",
 		"more": "更多",
 		"update": {

@@ -26,6 +26,8 @@
 		"window": "Janela",
 		"noSourcesFound": "Nenhuma fonte encontrada",
 		"microphone": "Microfone",
+		"systemAudio": "Áudio do sistema",
+		"systemAudioDefaultOutput": "Grava o que toca na saída de áudio padrão do Windows.",
 		"turnOffMicrophone": "Desligar microfone",
 		"selectMicToEnable": "Selecione um microfone para ativar",
 		"noMicrophonesFound": "Nenhum microfone encontrado",
@@ -42,6 +44,7 @@
 		"resume": "Retomar",
 		"pause": "Pausar",
 		"stop": "Parar",
+		"restart": "Recomeçar gravação",
 		"cancel": "Cancelar",
 		"more": "Mais",
 		"update": {

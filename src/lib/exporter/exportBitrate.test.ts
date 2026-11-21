@@ -119,4 +119,14 @@ describe("export bitrate policy", () => {
 			}),
 		).toBe(45_000_000);
 	});
+
+	it("gives the larger-than-source tier the source-quality curve for its size", () => {
+		const options = { frameRate: 30, encodingMode: "quality" } as const;
+		expect(getMp4ExportBitrate({ ...options, width: 2732, height: 1536, quality: "double" })).toBe(
+			getMp4ExportBitrate({ ...options, width: 2732, height: 1536, quality: "source" }),
+		);
+		expect(
+			getMp4ExportBitrate({ ...options, width: 3840, height: 2160, quality: "double" }),
+		).toBe(45_000_000);
+	});
 });

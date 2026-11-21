@@ -70,6 +70,10 @@ describe("getSmokeExportConfig", () => {
 		});
 	});
 
+	it("accepts the double export tier", () => {
+		expect(getSmokeExportConfig("?smokeExport=1&smokeQuality=double").quality).toBe("double");
+	});
+
 	it("drops invalid optional smoke export values", () => {
 		const config = getSmokeExportConfig(
 			"?smokeExport=1" +

@@ -3,6 +3,12 @@ import type {
 	TransferClip as RecorderClip,
 	TransferManifest as RecorderManifest,
 } from "../../src/lib/sykaExport/contract";
+import {
+	getWebcamShadowStrength,
+	WEBCAM_SHADOW_LAYER_PROFILES,
+} from "../../src/lib/exporter/shadowProfile";
+import { SQUIRCLE_EXPONENT } from "../../src/lib/geometry/squircle";
+import { evaluateKeyframes, fitChannel } from "../../src/lib/sykaExport/keyframeFit";
 import { backgroundComposition } from "./backgroundComposition";
 
 const n = (v: number) => Number(v.toFixed(9));
@@ -33,6 +39,73 @@ export function sourceTrackSlices(
 			];
 		});
 	});
+}
+
+type TransferWebcam = NonNullable<RecorderManifest["plan"]["webcam"]>;
+
+/**
+ * Studio rounds corners with circular arcs; Recorder draws a superellipse.
+ * This arc radius cuts the corner at the same depth along the diagonal.
+ */
+const SQUIRCLE_TO_ARC_RADIUS =
+	((1 - 2 ** (-1 / SQUIRCLE_EXPONENT)) * Math.SQRT2) / (Math.SQRT2 - 1);
+
+/** Recorder's drop-shadow chain as native Studio shadows (canvas and CSS blur match). */
+export function webcamShadows(w: TransferWebcam) {
+	const strength = getWebcamShadowStrength(w.shadow ?? 0);
+	const size = Math.min(w.width, w.height);
+	if (strength <= 0) return [];
+	return WEBCAM_SHADOW_LAYER_PROFILES.map((layer) => ({
+		blur: size * layer.blurScale * strength,
+		offsetY: size * layer.offsetScale * strength,
+		opacity: Math.min(1, layer.alphaScale * strength),
+	}));
+}
+
+/**
+ * Shrink the camera with the screen zoom. Studio scales about the box centre and
+ * Recorder keeps the camera at its anchor, so offsets move it back there.
+ * Keyframe times are on the video's source clock.
+ */
+export function webcamZoomTracks(
+	w: TransferWebcam,
+	slice: { startMs: number; endMs: number; sourceStartMs: number; speed: number },
+	frameRate: number,
+): string {
+	if (!w.zoomScale?.length) return "";
+	const first = Math.ceil((slice.startMs * frameRate) / 1000 - 1e-6);
+	const last = Math.floor((slice.endMs * frameRate) / 1000 + 1e-6);
+	if (last <= first) return "";
+	const points = [];
+	for (let frame = first; frame <= last; frame++)
+		points.push({ frame: frame - first, value: evaluateKeyframes(w.zoomScale, frame) });
+	if (points.every((point) => Math.abs(point.value - 1) < 0.0001)) return "";
+	const keyframes = fitChannel(points, 0.25 / Math.max(w.width, w.height));
+	const time = (frame: number) =>
+		n(
+			(slice.sourceStartMs +
+				(((frame + first) * 1000) / frameRate - slice.startMs) * slice.speed) /
+				1000,
+		);
+	const anchor = w.anchor ?? { x: 1, y: 1 };
+	const track = (property: string, value: (scale: number) => number) =>
+		`          <keyframeTrack property="${property}">\n` +
+		keyframes
+			.map(
+				(k) =>
+					`            <keyframe time={${time(k.frame)}} value={${n(value(k.value))}}${k.easing ? ` easing=${quoted(k.easing)}` : ""} />`,
+			)
+			.join("\n") +
+		"\n          </keyframeTrack>\n";
+	return (
+		track("scale", (scale) => scale) +
+		(Math.abs(anchor.x - 0.5) > 1e-6
+			? track("offsetX", (scale) => w.width * (1 - scale) * (anchor.x - 0.5))
+			: "") +
+		(Math.abs(anchor.y - 0.5) > 1e-6
+			? track("offsetY", (scale) => w.height * (1 - scale) * (anchor.y - 0.5))
+			: "")
+	);
 }
 
 export function recorderComposition(data: RecorderManifest, prefix = ""): string {
@@ -100,30 +173,23 @@ export function recorderComposition(data: RecorderManifest, prefix = ""): string
 	let webcam = "";
 	if (p.webcam) {
 		const w = p.webcam;
-		const videoWidth = w.videoRect?.width ?? w.width / w.crop.width,
-			videoHeight = w.videoRect?.height ?? w.height / w.crop.height;
-		const videoX = w.videoRect?.x ?? -w.crop.x * videoWidth,
-			videoY = w.videoRect?.y ?? -w.crop.y * videoHeight;
-		const padding = w.shadowPadding ?? 0;
-		const matte = w.maskPadding ?? 0;
-		const shadow = w.shadowAssetId
-			? `          <image name="Sombra de webcam" src=${source(w.shadowAssetId)} x={${n(-padding)}} y={${n(-padding)}} width={${n(w.width + padding * 2)}} height={${n(w.height + padding * 2)}} />\n`
-			: "";
-		const mask = w.maskAssetId
-			? `            <effect type="opacity" value={1}><mask src=${source(w.maskAssetId)} smoothing={0} /></effect>`
-			: `            <rect clipPath width={${n(w.width)}} height={${n(w.height)}} cornerRadius={${n(w.cornerRadius)}} />`;
+		const shadows = webcamShadows(w)
+			.map(
+				(layer) =>
+					`          <shadow color="#000000" blur={${n(layer.blur)}} offsetY={${n(layer.offsetY)}} opacity={${n(layer.opacity)}} />\n`,
+			)
+			.join("");
+		// One plain video per slice: Studio moves, resizes and restyles it directly.
+		// The footage already carries Recorder's crop and mirror.
 		webcam =
 			'      <sequence id="webcam-track" name="Webcam">\n' +
 			sourceTrackSlices(p.clips, w.delayMs, w.visibleRanges)
 				.map(
 					(s, i) =>
-						`        <rect id="webcam-${i}" name="Webcam ${i + 1}" x={${n(w.x)}} y={${n(w.y)}} width={${n(w.width)}} height={${n(w.height)}} start={${sec(s.startMs)}} end={${sec(s.endMs)}}${w.mirror ? " scaleX={-1}" : ""}>\n` +
-						shadow +
-						`          <rect name="Cámara" x={${-matte}} y={${-matte}} width={${n(w.width + matte * 2)}} height={${n(w.height + matte * 2)}}>\n` +
-						`            <rect x={${matte}} y={${matte}} width={${n(w.width)}} height={${n(w.height)}}>\n` +
-						`              <rect clipPath width={${n(w.width)}} height={${n(w.height)}} />\n` +
-						`            <video src=${source(w.assetId)} x={${n(videoX)}} y={${n(videoY)}} width={${n(videoWidth)}} height={${n(videoHeight)}} start={0} end={${sec(s.endMs - s.startMs)}} sourceIn={${sec(s.sourceStartMs)}} playbackRate={${n(s.speed)}} muted />\n` +
-						`            </rect>\n${mask}\n          </rect>\n        </rect>`,
+						`        <video id="webcam-${i}" name="Webcam ${i + 1}" src=${source(w.assetId)} x={${n(w.x)}} y={${n(w.y)}} width={${n(w.width)}} height={${n(w.height)}} objectFit="cover" cornerRadius={${n(w.cornerRadius * SQUIRCLE_TO_ARC_RADIUS)}} start={${sec(s.startMs)}} end={${sec(s.endMs)}} sourceIn={${sec(s.sourceStartMs)}} playbackRate={${n(s.speed)}} muted>\n` +
+						shadows +
+						webcamZoomTracks(w, s, c.frameRate) +
+						"        </video>",
 				)
 				.join("\n") +
 			"\n      </sequence>";

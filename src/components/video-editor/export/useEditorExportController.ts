@@ -9,7 +9,7 @@ import type { VideoPlaybackRef } from "../VideoPlayback";
 import { useExportDialogActions } from "./useExportDialogActions";
 import type { useExportDimensions } from "./useExportDimensions";
 import { useExportMessages } from "./useExportMessages";
-import { useExportRunner } from "./useExportRunner";
+import { type ExportOutcome, useExportRunner } from "./useExportRunner";
 import type { ExportRunnerInput } from "./exportRunnerSupport";
 import type { EditorProjectData } from "../projectPersistence";
 import { useSykaTransfer } from "./useSykaTransfer";
@@ -71,7 +71,45 @@ export function useEditorExportController(input: Input) {
 		remountPreview: input.remountPreview,
 	};
 	const runner = useExportRunner(runnerInput);
-	const sykaTransfer = useSykaTransfer(runnerInput, input.projectData, input.projectName);
+	// The Studio transfer keeps preparing its screen video at no more than the
+	// source size; the larger-than-source "double" tier is for MP4 exports only.
+	const sykaTransfer = useSykaTransfer(
+		input.settings.exportQuality === "double"
+			? {
+					...runnerInput,
+					exportSettings: { ...input.settings, exportQuality: "source" },
+				}
+			: runnerInput,
+		input.projectData,
+		input.projectName,
+		{
+			run: (outputPath, onProgress) =>
+				new Promise((resolve) => {
+					let settled = false;
+					const settle = (outcome: ExportOutcome) => {
+						if (settled) return;
+						settled = true;
+						resolve(outcome);
+					};
+					void runner
+						.handleExport(
+							{
+								format: "mp4",
+								quality: input.settings.exportQuality,
+								encodingMode: input.settings.exportEncodingMode,
+								mp4FrameRate: input.settings.mp4FrameRate,
+							},
+							{ destination: "download", outputPath, onProgress, onSettled: settle },
+						)
+						.then(
+							() => settle({ success: false, error: "La exportación se canceló." }),
+							(error) => settle({ success: false, error: String(error) }),
+						);
+				}),
+			// Runs after the package is saved, when this controller's actions exist.
+			cancel: () => dialogActions.handleCancelExport(),
+		},
+	);
 	const dialogActions = useExportDialogActions({
 		videoPath: input.videoPath,
 		videoPlaybackRef: input.videoPlaybackRef,
@@ -102,5 +140,11 @@ export function useEditorExportController(input: Input) {
 		active: status.isLightningExportInProgress,
 	});
 
-	return { dialogActions, status, exportMessage, sykaTransfer };
+	return {
+		dialogActions,
+		status,
+		exportMessage,
+		sykaTransfer,
+		handleExport: runner.handleExport,
+	};
 }

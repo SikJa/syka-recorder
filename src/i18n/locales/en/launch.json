@@ -26,6 +26,8 @@
 		"window": "Window",
 		"noSourcesFound": "No sources found",
 		"microphone": "Microphone",
+		"systemAudio": "System audio",
+		"systemAudioDefaultOutput": "Records what plays through the default Windows audio output.",
 		"turnOffMicrophone": "Turn Off Microphone",
 		"selectMicToEnable": "Select a microphone to enable",
 		"noMicrophonesFound": "No microphones found",
@@ -42,6 +44,7 @@
 		"resume": "Resume",
 		"pause": "Pause",
 		"stop": "Stop",
+		"restart": "Restart recording",
 		"cancel": "Cancel",
 		"more": "More",
 		"update": {

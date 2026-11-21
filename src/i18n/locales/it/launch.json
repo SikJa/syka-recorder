@@ -26,6 +26,8 @@
 		"window": "Finestra",
 		"noSourcesFound": "Nessuna sorgente trovata",
 		"microphone": "Microfono",
+		"systemAudio": "Audio di sistema",
+		"systemAudioDefaultOutput": "Registra ciò che viene riprodotto sull'uscita audio predefinita di Windows.",
 		"turnOffMicrophone": "Spegni microfono",
 		"selectMicToEnable": "Seleziona un microfono da abilitare",
 		"noMicrophonesFound": "Nessun microfono trovato",
@@ -42,6 +44,7 @@
 		"resume": "Riprendi",
 		"pause": "Pausa",
 		"stop": "Stop",
+		"restart": "Ricomincia registrazione",
 		"cancel": "Annulla",
 		"more": "Altro",
 		"update": {

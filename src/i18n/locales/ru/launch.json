@@ -26,6 +26,8 @@
 		"window": "Окно",
 		"noSourcesFound": "Источники изображения не найдены",
 		"microphone": "Микрофон",
+		"systemAudio": "Системные звуки",
+		"systemAudioDefaultOutput": "Записывает то, что воспроизводится через устройство вывода звука Windows по умолчанию.",
 		"turnOffMicrophone": "Выключить микрофон",
 		"selectMicToEnable": "Выберите микрофон для записи звука",
 		"noMicrophonesFound": "Нет доступных микрофонов",
@@ -42,6 +44,7 @@
 		"resume": "Возобновить",
 		"pause": "Пауза",
 		"stop": "Стоп",
+		"restart": "Начать запись заново",
 		"cancel": "Отмена",
 		"more": "Ещё",
 		"update": {

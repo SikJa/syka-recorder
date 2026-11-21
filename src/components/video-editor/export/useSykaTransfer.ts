@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import type { ExportQuality } from "@/lib/exporter";
+import type { ExportProgress, ExportQuality } from "@/lib/exporter";
 import { getMp4ExportBitrate } from "@/lib/exporter/exportBitrate";
 import { DEFAULT_MP4_CODEC, probeSupportedMp4Dimensions } from "@/lib/exporter/mp4Support";
+import { SYKA_PACKAGE_FOLDERS } from "@/lib/sykaExport/contract";
 import { renderTransfer } from "@/lib/sykaExport/renderTransfer";
 import { calculateMp4ExportDimensions, calculateMp4SourceDimensions } from "../exportDimensions";
 import { isVideoWallpaperSource } from "@/lib/wallpapers";
@@ -13,13 +14,44 @@ import {
 import { buildExportRenderOptions } from "./buildExportRenderOptions";
 import { streamExportBlobToTempFile } from "./exportPersistence";
 import type { ExportRunnerInput } from "./exportRunnerSupport";
+import type { ExportOutcome } from "./useExportRunner";
 
 type TransferJob = { canceled: boolean; operationId?: string; cancelRenderer?: () => void };
+
+/** The editor's own MP4 export, written to a given path (same output as Exportar). */
+export type FinalVideoExport = {
+	run: (
+		outputPath: string,
+		onProgress: (progress: ExportProgress) => void,
+	) => Promise<ExportOutcome>;
+	cancel: () => void;
+};
+
+const INCLUDE_FINAL_KEY = "syka.transfer.includeFinalVideo";
+
+function readIncludeFinal() {
+	try {
+		return localStorage.getItem(INCLUDE_FINAL_KEY) !== "false";
+	} catch {
+		return true;
+	}
+}
+
+/** "Mi grabación.mp4", safe on Windows. */
+export function finalVideoFileName(name: string) {
+	const safe = name
+		// biome-ignore lint/suspicious/noControlCharactersInRegex: Strip control characters forbidden in filenames.
+		.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")
+		.replace(/[. ]+$/g, "")
+		.slice(0, 80);
+	return `${safe || "Video final"}.mp4`;
+}
 
 export function useSykaTransfer(
 	input: ExportRunnerInput,
 	projectData: EditorProjectData,
 	name: string,
+	finalVideo?: FinalVideoExport,
 ) {
 	const [open, setOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
@@ -30,6 +62,17 @@ export function useSykaTransfer(
 	const [warnings, setWarnings] = useState<string[]>([]);
 	const [openingStudio, setOpeningStudio] = useState(false);
 	const [folderCopied, setFolderCopied] = useState(false);
+	const [includeFinal, setIncludeFinalState] = useState(readIncludeFinal);
+	const [finalVideoPath, setFinalVideoPath] = useState<string | null>(null);
+	const finalRunning = useRef(false);
+	const setIncludeFinal = (value: boolean) => {
+		setIncludeFinalState(value);
+		try {
+			localStorage.setItem(INCLUDE_FINAL_KEY, String(value));
+		} catch {
+			/* The choice still applies to this session. */
+		}
+	};
 	const projectFolder = path?.replace(/[\\/]manifest\.json$/i, "") ?? "";
 	const copyProjectFolder = async () => {
 		try {
@@ -67,6 +110,10 @@ export function useSykaTransfer(
 		}
 	};
 	const cancel = () => {
+		if (finalRunning.current) {
+			finalVideo?.cancel();
+			return;
+		}
 		const job = active.current;
 		if (!job) return;
 		job.canceled = true;
@@ -81,6 +128,7 @@ export function useSykaTransfer(
 		setBusy(true);
 		setError(null);
 		setPath(null);
+		setFinalVideoPath(null);
 		setFolderCopied(false);
 		setProgress(0);
 		let tempPath: string | undefined;
@@ -278,6 +326,35 @@ export function useSykaTransfer(
 			input.exportSession.setIsExporting(false);
 			if (previewPaused) input.remountPreview();
 		}
+		if (completedPath && includeFinal && finalVideo) {
+			// The full export (background, camera, zooms) next to the editable
+			// project, so the package has a video to play right away.
+			const folder = completedPath.replace(/[\\/]manifest\.json$/i, "");
+			const outputPath = `${folder}\\${SYKA_PACKAGE_FOLDERS.finals}\\${finalVideoFileName(name)}`;
+			finalRunning.current = true;
+			setBusy(true);
+			setPhase("Exportando el video final…");
+			setProgress(0);
+			try {
+				const outcome = await finalVideo.run(outputPath, (progress) =>
+					setProgress(Math.round(progress.percentage)),
+				);
+				if (outcome.success) setFinalVideoPath(outcome.path);
+				else
+					setError(
+						`El proyecto quedó guardado, pero el video final no se exportó: ${outcome.error}`,
+					);
+			} catch (err) {
+				setError(
+					`El proyecto quedó guardado, pero el video final no se exportó: ${String(err)}`,
+				);
+			} finally {
+				finalRunning.current = false;
+				setBusy(false);
+				setPhase("Listo para abrir en Syka Studio");
+				setProgress(100);
+			}
+		}
 		if (andOpen && completedPath) await openInStudio(completedPath);
 	};
 	/** Final Studio canvas size, including the selected aspect ratio. */
@@ -311,6 +388,10 @@ export function useSykaTransfer(
 		projectFolder,
 		folderCopied,
 		copyProjectFolder,
+		includeFinal: Boolean(finalVideo) && includeFinal,
+		canIncludeFinal: Boolean(finalVideo),
+		setIncludeFinal,
+		finalVideoPath,
 		warnings,
 		start,
 		cancel,

@@ -1,3 +1,4 @@
+import { Description, Label } from "@heroui/react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -7,6 +8,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { ExportSettingsMenu } from "../ExportSettingsMenu";
 import type { useSykaTransfer } from "./useSykaTransfer";
 
@@ -42,7 +44,8 @@ export function SykaTransferButton({
 					</DialogHeader>
 					<p className="text-sm text-muted">
 						Se conservan el fondo, los márgenes, los bordes y las sombras. La cámara
-						queda en su propia pista. El cursor y el recorte quedan incorporados al video.
+						queda en su propia pista. El cursor y el recorte quedan incorporados al
+						video.
 					</p>
 					{!transfer.busy && !transfer.path && (
 						<ExportSettingsMenu
@@ -66,6 +69,20 @@ export function SykaTransferButton({
 							className="rounded-none bg-transparent p-0 shadow-none"
 						/>
 					)}
+					{!transfer.busy && !transfer.path && transfer.canIncludeFinal && (
+						<div className="space-y-1">
+							<Switch
+								checked={transfer.includeFinal}
+								onCheckedChange={transfer.setIncludeFinal}
+							>
+								<Label>Incluir el video terminado</Label>
+							</Switch>
+							<Description>
+								Exporta también el video con fondo, cámara y zooms en la carpeta 02
+								Finales. Tarda lo mismo que Exportar.
+							</Description>
+						</div>
+					)}
 					{transfer.busy && (
 						<div role="status" aria-live="polite" className="space-y-2">
 							<p className="text-sm">{transfer.phase}</p>
@@ -87,6 +104,11 @@ export function SykaTransferButton({
 							<p className="text-sm">
 								Proyecto listo. Abrilo directamente en Studio para seguir editando.
 							</p>
+							{transfer.finalVideoPath && (
+								<p className="text-sm text-muted">
+									El video terminado quedó en 02 Finales.
+								</p>
+							)}
 							<p className="text-sm text-muted">
 								Para abrirlo manualmente, elegí esta carpeta como proyecto en
 								Studio. El manifest.json solo describe el montaje: adjuntarlo al

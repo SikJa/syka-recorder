@@ -8,6 +8,7 @@ import { useEditorExportController } from "./export/useEditorExportController";
 import { useExportDimensions } from "./export/useExportDimensions";
 import { useExportSession } from "./export/useExportSession";
 import { useExportSettings } from "./export/useExportSettings";
+import { useMcpEditorBridge } from "./hooks/useMcpEditorBridge";
 import { useTimelineEditingController } from "./hooks/useTimelineEditingController";
 import { EditorShell } from "./layout/EditorShell";
 import { useEditorSettingsPanelProps } from "./layout/useEditorSettingsPanelProps";
@@ -344,6 +345,14 @@ export default function VideoEditor() {
 		experimentalNvidiaCudaExport,
 		nvidiaCudaExportAvailable,
 		remountPreview,
+	});
+	useMcpEditorBridge({
+		project,
+		projectController,
+		exportController,
+		exportSession,
+		isPreviewReady,
+		duration,
 	});
 	const previewAspectRatioValue = getAspectRatioValue(
 		aspectRatio,

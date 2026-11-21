@@ -230,6 +230,10 @@
 			"high": "Alta",
 			"original": "Original"
 		},
+		"double": {
+			"title": "Resolução dupla (2×)",
+			"hint": "Renderiza Original em {{dimensions}} para zooms e textos mais nítidos."
+		},
 		"fpsTitle": "FPS",
 		"loop": "Repetir",
 		"outputDimensions": "Saída: {{dimensions}}px",
@@ -258,5 +262,12 @@
 		"title": "Atualizações",
 		"experimental": "Atualizações experimentais",
 		"saveFailed": "Falha ao alterar o canal de atualização."
+	},
+	"mcp": {
+		"title": "Controle por agentes (MCP)",
+		"description": "Permite que agentes de IA neste computador gravem, abram, exportem e enviem projetos ao Studio.",
+		"copy": "Copiar",
+		"copied": "Copiado",
+		"copyFailed": "Não foi possível copiar o endereço."
 	}
 }

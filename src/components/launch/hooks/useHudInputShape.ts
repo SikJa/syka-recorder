@@ -1,5 +1,16 @@
 import { useEffect } from "react";
 
+// Infinite animations (the REC dot, spinners) never settle and do not move
+// any control, so only finite ones keep the per-frame measurement running.
+function hasFiniteAnimationRunning() {
+	if (typeof document.getAnimations !== "function") return false;
+	return document.getAnimations().some((animation) => {
+		if (animation.playState !== "running") return false;
+		const end = animation.effect?.getComputedTiming().endTime;
+		return typeof end === "number" && Number.isFinite(end);
+	});
+}
+
 // Windows mouse forwarding can stop after a focus change. Give the existing HUD
 // a native shape containing only its controls, popovers and floating webcam.
 export function useHudInputShape(platform: string | null) {
@@ -57,6 +68,12 @@ export function useHudInputShape(platform: string | null) {
 				});
 			}
 			publish(regions);
+			// Popovers and tooltips zoom in from 90% (HeroUI data-entering) and the
+			// bar's state swap runs on WAAPI. Neither changes an observed attribute
+			// or the layout size when it settles, so keep measuring every frame
+			// until finite animations finish; otherwise the shape stays fitted to
+			// the first, smaller frame and clips the edges of the finished popover.
+			if (hasFiniteAnimationRunning()) schedule();
 		};
 		const beginDrag = (event: PointerEvent) => {
 			if (event.button !== 0 || dragPointerId !== null || !(event.target instanceof Element)) return;
@@ -80,9 +97,33 @@ export function useHudInputShape(platform: string | null) {
 			childList: true,
 			subtree: true,
 			attributes: true,
-			attributeFilter: ["style", "class", "data-state", "hidden"],
+			attributeFilter: [
+				"style",
+				"class",
+				"data-state",
+				"hidden",
+				"data-entering",
+				"data-exiting",
+			],
 		});
+		// setShape converts DIPs to pixels with the scale factor current at the
+		// call. When the HUD moves to a display with another scale, the identical
+		// DIP regions must be sent again or the old pixel shape stays in place.
+		let scaleQuery: MediaQueryList | null = null;
+		const watchScale = () => {
+			scaleQuery?.removeEventListener("change", onScaleChange);
+			scaleQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+			scaleQuery.addEventListener("change", onScaleChange);
+		};
+		const onScaleChange = () => {
+			previous = "";
+			watchScale();
+			schedule();
+		};
+		watchScale();
 		window.addEventListener("resize", schedule);
+		document.addEventListener("animationend", schedule, true);
+		document.addEventListener("transitionend", schedule, true);
 		window.addEventListener("pointerdown", beginDrag, true);
 		window.addEventListener("pointerup", endDrag, true);
 		window.addEventListener("pointercancel", endDrag, true);
@@ -93,7 +134,10 @@ export function useHudInputShape(platform: string | null) {
 			if (frame !== null) cancelAnimationFrame(frame);
 			observer.disconnect();
 			resizeObserver.disconnect();
+			scaleQuery?.removeEventListener("change", onScaleChange);
 			window.removeEventListener("resize", schedule);
+			document.removeEventListener("animationend", schedule, true);
+			document.removeEventListener("transitionend", schedule, true);
 			window.removeEventListener("pointerdown", beginDrag, true);
 			window.removeEventListener("pointerup", endDrag, true);
 			window.removeEventListener("pointercancel", endDrag, true);

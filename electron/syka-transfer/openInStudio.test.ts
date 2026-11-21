@@ -3,7 +3,7 @@ const mocks = vi.hoisted(() => ({ message: vi.fn(), picker: vi.fn(), external: v
 vi.mock("electron", () => ({ app: { getPath: () => "C:\\Recorder\\Recorder.exe" }, BrowserWindow: {}, dialog: { showMessageBox: mocks.message, showOpenDialog: mocks.picker }, shell: { openExternal: mocks.external } }));
 vi.mock("node:child_process", () => ({ execFile: (_file: string, _args: string[], _opts: unknown, done: (error: Error) => void) => done(new Error("not running")) }));
 vi.mock("../appSettingsStore", () => ({ readAppSetting: () => null, writeAppSetting: vi.fn() }));
-vi.mock("./studioInstallation", () => ({ studioInstallation: async () => null, installedStudioCandidates: async () => [] }));
+vi.mock("./studioInstallation", () => ({ studioInstallation: async () => null, newestStudioInstallation: async () => null, installedStudioCandidates: async () => [] }));
 vi.mock("./validateStudioProject", () => ({ validateStudioProject: mocks.validate }));
 import { openInStudio, STUDIO_DOWNLOAD_URL } from "./openInStudio";
 const platform = Object.getOwnPropertyDescriptor(process, "platform")!;

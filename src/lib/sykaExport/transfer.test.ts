@@ -41,11 +41,14 @@ function fixture(): BuildTransferInput {
 describe("Syka transfer", () => {
 	it("matches the audible editor level and never doubles embedded audio with sidecars", () => {
 		const input = fixture();
-		input.editor.defaultSourceAudioTrackSettings = { mic: { volume: 1, normalize: true }, system: { volume: 0.5, normalize: false } };
+		input.editor.defaultSourceAudioTrackSettings = {
+			mic: { volume: 1, normalize: true },
+			system: { volume: 0.5, normalize: false },
+		};
 		const { plan } = buildTransfer(input);
-		expect(plan.audio.map(a => a.role)).toEqual(["system", "mic"]);
-		expect(plan.audio.find(a => a.role === "mic")?.gains.a).toBe(1);
-		expect(plan.audio.find(a => a.role === "system")?.gains.a).toBe(0.5);
+		expect(plan.audio.map((a) => a.role)).toEqual(["system", "mic"]);
+		expect(plan.audio.find((a) => a.role === "mic")?.gains.a).toBe(1);
+		expect(plan.audio.find((a) => a.role === "system")?.gains.a).toBe(0.5);
 	});
 	it("transfers the actual padded frame, video background, and chosen canvas aspect ratio", () => {
 		const input = fixture();
@@ -65,7 +68,7 @@ describe("Syka transfer", () => {
 		);
 		expect(plan.warnings.some((w) => w.includes("no se aplican"))).toBe(false);
 	});
-	it("keeps the webcam source aspect ratio while covering the selected crop", () => {
+	it("hands Studio the camera crop, anchor and its shrink while the screen zooms", () => {
 		const input = fixture();
 		input.webcamDimensions = { width: 1920, height: 1080 };
 		input.editor.webcam = {
@@ -75,18 +78,48 @@ describe("Syka transfer", () => {
 			width: 40,
 			height: 40,
 			shadow: 0.4,
+			reactToZoom: true,
+			positionPreset: "bottom-left",
 			cropRegion: { x: 0.25, y: 0, width: 0.5, height: 1 },
 		};
 		const { plan } = buildTransfer(input),
 			camera = plan.webcam!;
-		expect(camera.shadow).toBe(0.4);
-		expect(camera.videoRect!.width / camera.videoRect!.height).toBeCloseTo(1920 / 1080);
-		expect(camera.videoRect!.width * camera.crop.width).toBeGreaterThanOrEqual(
-			camera.width - 0.00001,
-		);
-		expect(camera.videoRect!.height * camera.crop.height).toBeGreaterThanOrEqual(
-			camera.height - 0.00001,
-		);
+		expect(camera).toMatchObject({
+			shadow: 0.4,
+			crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+			anchor: { x: 0, y: 1 },
+		});
+		// The 50% crop of a 16:9 camera is close to square.
+		expect(camera.width / camera.height).toBeCloseTo(960 / 1080, 1);
+		const samples = sampleZoomCamera({
+			zoomRegions: input.zoomRegions,
+			clipRegions: plan.clips,
+			cursorTelemetry: [],
+			settings: input.editor,
+			frameWidth: plan.canvas.width,
+			frameHeight: plan.canvas.height,
+			baseMask: plan.screen,
+			durationMs: plan.canvas.durationMs,
+			frameRate: 30,
+		});
+		expect(evaluateKeyframes(camera.zoomScale!, 0)).toBeCloseTo(1, 3);
+		for (const frame of [75, 90, 105]) {
+			const expected = 1 / samples[frame].scale;
+			expect(expected).toBeLessThan(0.99);
+			expect(
+				Math.abs(evaluateKeyframes(camera.zoomScale!, frame) - expected) * camera.width,
+			).toBeLessThan(0.5);
+		}
+	});
+	it("keeps the camera size when it does not react to zoom", () => {
+		const input = fixture();
+		input.editor.webcam = {
+			...input.editor.webcam,
+			enabled: true,
+			sourcePath: "B:/fixture/camera.mp4",
+			reactToZoom: false,
+		};
+		expect(buildTransfer(input).plan.webcam!.zoomScale).toBeUndefined();
 	});
 	it("does not resurrect deleted footage from an explicitly empty timeline", () => {
 		const input = fixture();

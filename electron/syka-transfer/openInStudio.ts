@@ -9,7 +9,11 @@ import {
 	isSameProjectDirectory,
 } from "./studioOpenConfirmation";
 import { validateStudioProject } from "./validateStudioProject";
-import { installedStudioCandidates, studioInstallation as installation } from "./studioInstallation";
+import {
+	installedStudioCandidates,
+	newestStudioInstallation,
+	studioInstallation as installation,
+} from "./studioInstallation";
 
 const run = promisify(execFile);
 const SETTING = "syka.studioExecutable";
@@ -20,34 +24,34 @@ export async function openInStudio(projectDirectory: string, owner: BrowserWindo
 	if (process.platform !== "win32")
 		throw new Error("Abrí la carpeta del proyecto desde Syka Studio en este sistema.");
 	let studio: Awaited<ReturnType<typeof installation>> = null;
-	if (!studio) {
-		// A running custom installation is authoritative; no assumptions about drive letters.
-		try {
-			const result = await run(
-				"powershell.exe",
-				[
-					"-NoProfile",
-					"-NonInteractive",
-					"-Command",
-					"Get-CimInstance Win32_Process -Filter \"Name='Syka Studio.exe'\" | Select-Object -ExpandProperty ExecutablePath -Unique",
-				],
-				{ windowsHide: true, timeout: 10000 },
-			);
-			for (const candidate of result.stdout.trim().split(/\r?\n/)) {
-				studio = await installation(candidate.trim());
-				if (studio) break;
-			}
-		} catch {
-			/* Fall through to standard locations or the user's selection. */
-		}
+	// A running installation is authoritative: the project opens in the window
+	// the user already has, with its profile. No assumptions about drive letters.
+	try {
+		const result = await run(
+			"powershell.exe",
+			[
+				"-NoProfile",
+				"-NonInteractive",
+				"-Command",
+				"Get-CimInstance Win32_Process -Filter \"Name='Syka Studio.exe'\" | Select-Object -ExpandProperty ExecutablePath -Unique",
+			],
+			{ windowsHide: true, timeout: 10000 },
+		);
+		studio = await newestStudioInstallation(
+			result.stdout
+				.trim()
+				.split(/\r?\n/)
+				.map((line) => line.trim()),
+		);
+	} catch {
+		/* Fall through to the known installations or the user's selection. */
 	}
-	if (!studio) {
-		for (const candidate of await installedStudioCandidates()) {
-			studio = await installation(candidate);
-			if (studio) break;
-		}
-	}
-	if (!studio) studio = await installation(readAppSetting(SETTING));
+	// Otherwise the newest copy, with the one chosen before winning a tie.
+	if (!studio)
+		studio = await newestStudioInstallation([
+			readAppSetting(SETTING),
+			...(await installedStudioCandidates()),
+		]);
 	if (!studio) {
 		const prompt: Electron.MessageBoxOptions = {
 			type: "info",
@@ -59,7 +63,9 @@ export async function openInStudio(projectDirectory: string, owner: BrowserWindo
 			cancelId: 2,
 			noLink: true,
 		};
-		const choice = owner ? await dialog.showMessageBox(owner, prompt) : await dialog.showMessageBox(prompt);
+		const choice = owner
+			? await dialog.showMessageBox(owner, prompt)
+			: await dialog.showMessageBox(prompt);
 		if (choice.response === 0) {
 			await shell.openExternal(STUDIO_DOWNLOAD_URL);
 			return { success: false, canceled: true };

@@ -6,7 +6,6 @@ import { recorderComposition } from "./composition";
 
 /** Native project alongside the portable manifest; media is stored only once. */
 export async function writeStudioProject(directory: string, manifest: TransferManifest) {
-	const webcam = manifest.plan.webcam;
 	const emptyAudio = new Set<string>();
 	for (const asset of manifest.assets) {
 		if (asset.size !== 44 || !asset.path.endsWith(".wav")) continue;
@@ -64,7 +63,7 @@ export async function writeStudioProject(directory: string, manifest: TransferMa
 						mask: "application/x-diffusionstudio-mask",
 					} as Record<string, string>
 				)[ext] ?? "application/octet-stream";
-			const matte = asset.id === "screen-mask" ? manifest.plan.screen : webcam;
+			const matte = asset.id === "screen-mask" ? manifest.plan.screen : undefined;
 			return {
 				id: `recorder-${asset.id}`,
 				path: asset.path,
@@ -96,7 +95,15 @@ export async function writeStudioProject(directory: string, manifest: TransferMa
 	});
 	await writeFile(
 		path.join(directory, "assets.yml"),
-		JSON.stringify({ version: 1, folders: ["media"], assets }, null, 2),
+		JSON.stringify(
+			{
+				version: 1,
+				folders: [...new Set(assets.map((asset) => path.posix.dirname(asset.path)))],
+				assets,
+			},
+			null,
+			2,
+		),
 		{ flag: "wx" },
 	);
 	await writeFile(

@@ -21,6 +21,33 @@ import type { VideoPlaybackRef } from "../VideoPlayback";
 
 const MP4_CROP_PROBE_DEBOUNCE_MS = 200;
 
+/**
+ * The "double" tier for an encoder-supported source size, or null when no
+ * encoder can go meaningfully beyond the source (already at the H.264 limit,
+ * or larger sizes rejected), in which case exports use the source size.
+ */
+export async function probeDoubleMp4Dimensions(
+	source: { width: number; height: number },
+	frameRate: ExportMp4FrameRate,
+): Promise<SupportedMp4Dimensions | null> {
+	const requested = calculateMp4ExportDimensions(
+		source.width,
+		source.height,
+		"double",
+		frameRate,
+	);
+	const sourcePixels = source.width * source.height;
+	if (requested.width * requested.height <= sourcePixels) return null;
+	const result = await probeSupportedMp4Dimensions({
+		width: requested.width,
+		height: requested.height,
+		frameRate,
+		codec: DEFAULT_MP4_CODEC,
+		getBitrate: getSourceQualityBitrate,
+	});
+	return result.encoderPath && result.width * result.height > sourcePixels ? result : null;
+}
+
 type Input = {
 	videoPlaybackRef: RefObject<VideoPlaybackRef | null>;
 	isPreviewReady: boolean;
@@ -45,6 +72,8 @@ export function useExportDimensions({
 			capped: false,
 			encoderPath: null,
 		});
+	const [supportedDoubleDimensions, setSupportedDoubleDimensions] =
+		useState<SupportedMp4Dimensions | null>(null);
 	const requestRef = useRef(0);
 	const previousProbeRef = useRef<Mp4SupportProbeSnapshot | null>(null);
 	const sourceDimensions = useMemo(() => {
@@ -83,8 +112,17 @@ export function useExportDimensions({
 			good: calculateMp4ExportDimensions(width, height, "good"),
 			high: calculateMp4ExportDimensions(width, height, "high"),
 			source: calculateMp4ExportDimensions(width, height, "source"),
+			// Only offered once an encoder has confirmed the larger size.
+			...(supportedDoubleDimensions
+				? {
+						double: {
+							width: supportedDoubleDimensions.width,
+							height: supportedDoubleDimensions.height,
+						},
+					}
+				: {}),
 		};
-	}, [supportedSourceDimensions, desiredSourceDimensions]);
+	}, [supportedSourceDimensions, desiredSourceDimensions, supportedDoubleDimensions]);
 	const ensureSupportedSourceDimensions = useCallback(
 		async (frameRate: ExportMp4FrameRate) => {
 			const result = await probeSupportedMp4Dimensions({
@@ -119,11 +157,17 @@ export function useExportDimensions({
 		previousProbeRef.current = snapshot;
 		const fallback = { ...desiredSourceDimensions, capped: false, encoderPath: null };
 		setSupportedSourceDimensions(fallback);
+		setSupportedDoubleDimensions(null);
 		const runProbe = () => {
 			void ensureSupportedSourceDimensions(mp4FrameRate)
-				.then((result) => {
+				.then(async (result) => {
+					if (cancelled || requestId !== requestRef.current) return;
+					setSupportedSourceDimensions(result);
+					const double = await probeDoubleMp4Dimensions(result, mp4FrameRate).catch(
+						() => null,
+					);
 					if (!cancelled && requestId === requestRef.current)
-						setSupportedSourceDimensions(result);
+						setSupportedDoubleDimensions(double);
 				})
 				.catch(() => {
 					if (!cancelled && requestId === requestRef.current)

@@ -1025,6 +1025,15 @@ interface Window {
 		getShortcuts: () => Promise<Record<string, unknown> | null>;
 		saveShortcuts: (shortcuts: unknown) => Promise<{ success: boolean; error?: string }>;
 		getEditorStartupView: () => "home" | "editor";
+		getMcpServerStatus: () => Promise<import("../src/lib/mcpBridge/contract").McpServerStatus>;
+		setMcpServerEnabled: (
+			enabled: boolean,
+		) => Promise<import("../src/lib/mcpBridge/contract").McpServerStatus>;
+		onMcpBridgeRequest: (
+			callback: (request: import("../src/lib/mcpBridge/contract").McpBridgeRequest) => void,
+		) => () => void;
+		replyMcpBridge: (reply: import("../src/lib/mcpBridge/contract").McpBridgeReply) => void;
+		announceMcpBridge: (commands: string[]) => void;
 		getAppSetting: (key: string) => unknown;
 		setAppSetting: (key: string, value: unknown) => boolean;
 		setHasUnsavedChanges: (hasChanges: boolean) => void;

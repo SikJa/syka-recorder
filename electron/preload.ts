@@ -1104,6 +1104,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		return ipcRenderer.invoke("save-shortcuts", shortcuts);
 	},
 	getEditorStartupView: (): "home" | "editor" => ipcRenderer.sendSync("get-editor-startup-view"),
+	getMcpServerStatus: () => ipcRenderer.invoke("mcp-server-status"),
+	setMcpServerEnabled: (enabled: boolean) => ipcRenderer.invoke("mcp-server-set-enabled", enabled),
+	onMcpBridgeRequest: (callback: (request: unknown) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, request: unknown) => callback(request);
+		ipcRenderer.on("mcp-bridge-request", listener);
+		return () => ipcRenderer.removeListener("mcp-bridge-request", listener);
+	},
+	replyMcpBridge: (reply: unknown) => ipcRenderer.send("mcp-bridge-reply", reply),
+	announceMcpBridge: (commands: string[]) => ipcRenderer.send("mcp-bridge-ready", commands),
 	getAppSetting: (key: string) => {
 		const result = ipcRenderer.sendSync("app-settings:get", key) as {
 			success?: boolean;
