@@ -151,7 +151,12 @@
 		"paddingBottom": "Bas",
 		"paddingLeft": "Gauche",
 		"paddingRight": "Droite",
-		"removeBackground": "Supprimer l’arrière-plan"
+		"removeBackground": "Supprimer l’arrière-plan",
+		"verticalFraming": "Cadrage vertical",
+		"verticalFramingFit": "Ajuster",
+		"verticalFramingFollow": "Suivre le curseur",
+		"verticalFramingFitDescription": "Tout l’écran est visible dans l’arrière-plan.",
+		"verticalFramingFollowDescription": "L’écran remplit le cadre et la caméra suit le curseur."
 	},
 	"sections": {
 		"scene": "Scène",

@@ -25,6 +25,7 @@ import {
 	computePaddedLayout,
 	scalePreviewBorderRadius,
 } from "@/components/video-editor/videoPlayback/layoutUtils";
+import { resolveSceneBaseFraming } from "@/components/video-editor/videoPlayback/verticalFraming";
 import { getLocalFilePath } from "@/lib/exporter/localMediaSource";
 import { isVideoWallpaperSource } from "@/lib/wallpapers";
 
@@ -106,6 +107,12 @@ export function buildTransfer(input: BuildTransferInput): {
 	const warnings = [
 		"El cursor y el recorte de pantalla quedan dibujados en el video; se conserva el original.",
 	];
+	const baseFraming = resolveSceneBaseFraming({
+		mode: editor.verticalFraming,
+		stageSize: { width, height },
+		maskRect: screen,
+		borderRadius: editor.borderRadius,
+	});
 	const cameraSamples = sampleZoomCamera({
 		zoomRegions: input.zoomRegions,
 		clipRegions: clips,
@@ -116,6 +123,7 @@ export function buildTransfer(input: BuildTransferInput): {
 		baseMask: screen,
 		durationMs,
 		frameRate,
+		baseFraming,
 	});
 	const plan: TransferPlan = {
 		name: input.name,
@@ -129,6 +137,7 @@ export function buildTransfer(input: BuildTransferInput): {
 			height,
 			frameRate,
 			durationMs,
+			{ continuousCamera: Boolean(baseFraming) },
 		),
 		audio: [],
 		warnings,
@@ -161,6 +170,10 @@ export function buildTransfer(input: BuildTransferInput): {
 			"Para transferir este fondo, guardalo como imagen o video local y seleccionalo en el editor.",
 		);
 	}
+	if (baseFraming)
+		warnings.push(
+			"El encuadre vertical que sigue al cursor se transfiere como un zoom continuo con curvas editables.",
+		);
 	if (plan.zooms.length)
 		warnings.push(
 			"Zooms con curvas editables aproximadas al resorte de Recorder; sin desenfoque de zoom. Los zooms conectados comparten sus valores en el borde.",
@@ -247,7 +260,9 @@ export function buildTransfer(input: BuildTransferInput): {
 						y: Math.min(1, Math.max(0, webcam.positionY)),
 					}
 				: getWebcamPositionForPreset(webcam.positionPreset || webcam.corner);
-		const zoomScale = webcam.reactToZoom ? fitWebcamZoomScale(cameraSamples, size) : undefined;
+		const zoomScale = webcam.reactToZoom
+			? fitWebcamZoomScale(cameraSamples, size, baseFraming?.fillScale)
+			: undefined;
 		plan.webcam = {
 			assetId: "webcam",
 			delayMs: webcam.timeOffsetMs,
@@ -275,15 +290,19 @@ const MIN_WEBCAM_SIZE_PX = 56;
 /**
  * The camera shrinks by the inverse of the screen zoom, as Recorder's preview
  * does, down to its minimum size. Null when no zoom changes the camera.
+ * `baseScale` is the vertical follow fill: framing, not a zoom, so it never
+ * shrinks the camera.
  */
 export function fitWebcamZoomScale(
 	samples: CameraSample[],
 	size: { width: number; height: number },
+	baseScale = 1,
 ) {
+	const base = baseScale > 0 && Number.isFinite(baseScale) ? baseScale : 1;
 	const floor = Math.min(1, MIN_WEBCAM_SIZE_PX / Math.max(1, Math.min(size.width, size.height)));
 	const points = samples.map((sample, frame) => ({
 		frame,
-		value: Math.min(1, Math.max(floor, 1 / Math.max(1, sample.scale))),
+		value: Math.min(1, Math.max(floor, 1 / Math.max(1, sample.scale / base))),
 	}));
 	if (points.length < 2 || points.every((point) => point.value > 0.9999)) return null;
 	return fitChannel(points, 0.25 / Math.max(size.width, size.height));

@@ -52,6 +52,11 @@ Si no tenés Studio, aparece un aviso para **descargarlo**, **buscar una instala
 
 Compartí **la carpeta completa**, no sólo `manifest.json`. Los medios del proyecto nativo usan rutas relativas. No se copian cuentas ni perfiles. La compatibilidad se comprueba contra la versión de Studio disponible: cambios futuros de su formato o CLI pueden necesitar una actualización de Recorder.
 
+## Vertical y vista de app
+
+- **Encuadre vertical:** en 9:16, *Seguir el cursor* llena el cuadro con tu pantalla y la cámara acompaña al cursor, con tus zooms encima. *Ajustar* muestra la pantalla entera, como antes.
+- **Vista de app:** en la barra de la vista previa, *Vista de app* dibuja la interfaz de TikTok, Instagram Reels, Stories, YouTube Shorts o YouTube encima del video, para ver qué tapan los botones y la descripción. También muestra solo las zonas seguras. No se exporta. Las zonas seguras salen de las guías de cada plataforma; la posición de cada botón es una estimación de las apps al 21/11/2026 ([investigación](docs/platform-overlays-research.md)).
+
 ## Para agentes (MCP)
 
 Recorder trae un servidor MCP local para que un agente lo maneje: ver el estado, elegir qué pantalla o ventana grabar, listar y abrir proyectos, grabar (iniciar, pausar, reanudar, reiniciar, detener), exportar MP4 y pasar un proyecto a Studio. Solo escucha en tu equipo y rechaza pedidos que vengan de páginas web. Se apaga en **Configuración → General**, donde también está la dirección.

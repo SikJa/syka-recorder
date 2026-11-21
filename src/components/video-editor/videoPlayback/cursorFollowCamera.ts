@@ -1,6 +1,7 @@
 import type { CursorTelemetryPoint, ZoomFocus } from "../types";
 import { interpolateCursorPosition } from "./cursorRenderer";
 import { clampFocusToScale } from "./focusUtils";
+import { clampFocusToHalfSpan } from "./verticalFraming";
 
 /**
  * Cursor-follow camera.
@@ -39,6 +40,11 @@ export interface CursorFollowConfig {
 	 * 0.25 for manual zooms, 0.25 for auto/system zooms.
 	 */
 	snapToEdgesRatio: number;
+	/**
+	 * Visible half-window in focus units. Defaults to a square window of
+	 * `1 / (2 * zoomScale)`; vertical framing passes its non-square window.
+	 */
+	visibleHalfSpan?: { x: number; y: number };
 }
 
 export const DEFAULT_CURSOR_FOLLOW_CONFIG: CursorFollowConfig = {
@@ -81,20 +87,33 @@ function getVisibleHalfSpan(zoomScale: number) {
 	return 1 / (2 * Math.max(1, zoomScale));
 }
 
+function clampFocusToView(
+	focus: ZoomFocus,
+	zoomScale: number,
+	visibleHalfSpan: CursorFollowConfig["visibleHalfSpan"],
+): ZoomFocus {
+	return visibleHalfSpan
+		? clampFocusToHalfSpan(focus, visibleHalfSpan)
+		: clampFocusToScale(focus, zoomScale);
+}
+
 function recenterFocusWhenCursorLeavesSafeZone(
 	currentFocus: ZoomFocus,
 	cursorFocus: ZoomFocus,
 	zoomScale: number,
 	safeZoneRatio: number,
+	visibleHalfSpan?: CursorFollowConfig["visibleHalfSpan"],
 ): ZoomFocus {
-	const halfSpan = getVisibleHalfSpan(zoomScale);
-	const visibleSpan = halfSpan * 2;
-	const safeZoneInset = visibleSpan * clampSafeZoneRatio(safeZoneRatio);
+	const halfSpanX = visibleHalfSpan?.x ?? getVisibleHalfSpan(zoomScale);
+	const halfSpanY = visibleHalfSpan?.y ?? getVisibleHalfSpan(zoomScale);
+	const safeRatio = clampSafeZoneRatio(safeZoneRatio);
+	const safeZoneInsetX = halfSpanX * 2 * safeRatio;
+	const safeZoneInsetY = halfSpanY * 2 * safeRatio;
 
-	const safeLeft = currentFocus.cx - halfSpan + safeZoneInset;
-	const safeRight = currentFocus.cx + halfSpan - safeZoneInset;
-	const safeTop = currentFocus.cy - halfSpan + safeZoneInset;
-	const safeBottom = currentFocus.cy + halfSpan - safeZoneInset;
+	const safeLeft = currentFocus.cx - halfSpanX + safeZoneInsetX;
+	const safeRight = currentFocus.cx + halfSpanX - safeZoneInsetX;
+	const safeTop = currentFocus.cy - halfSpanY + safeZoneInsetY;
+	const safeBottom = currentFocus.cy + halfSpanY - safeZoneInsetY;
 
 	let nextFocusX = currentFocus.cx;
 	let nextFocusY = currentFocus.cy;
@@ -111,12 +130,13 @@ function recenterFocusWhenCursorLeavesSafeZone(
 		nextFocusY = cursorFocus.cy;
 	}
 
-	return clampFocusToScale(
+	return clampFocusToView(
 		{
 			cx: nextFocusX,
 			cy: nextFocusY,
 		},
 		zoomScale,
+		visibleHalfSpan,
 	);
 }
 
@@ -138,7 +158,7 @@ export function computeCursorFollowFocus(
 	regionFocus: ZoomFocus,
 	config: CursorFollowConfig = DEFAULT_CURSOR_FOLLOW_CONFIG,
 ): ZoomFocus {
-	const clampedRegionFocus = clampFocusToScale(regionFocus, zoomScale);
+	const clampedRegionFocus = clampFocusToView(regionFocus, zoomScale, config.visibleHalfSpan);
 
 	// If not zoomed (strength ≈ 0), reset state and return region focus
 	if (zoomStrength < 0.01) {
@@ -190,6 +210,7 @@ export function computeCursorFollowFocus(
 		{ cx: cursorPos.cx, cy: cursorPos.cy },
 		zoomScale,
 		config.snapToEdgesRatio,
+		config.visibleHalfSpan,
 	);
 
 	state.focusX = targetFocus.cx;

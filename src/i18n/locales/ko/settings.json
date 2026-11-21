@@ -151,7 +151,12 @@
 		"paddingBottom": "아래",
 		"paddingLeft": "왼쪽",
 		"paddingRight": "오른쪽",
-		"removeBackground": "배경 제거"
+		"removeBackground": "배경 제거",
+		"verticalFraming": "세로 프레이밍",
+		"verticalFramingFit": "맞춤",
+		"verticalFramingFollow": "커서 따라가기",
+		"verticalFramingFitDescription": "화면 전체가 배경 안에 표시됩니다.",
+		"verticalFramingFollowDescription": "화면이 프레임을 채우고 카메라가 커서를 따라갑니다."
 	},
 	"sections": {
 		"scene": "장면",

@@ -157,7 +157,12 @@
 		"paddingBottom": "Bottom",
 		"paddingLeft": "Left",
 		"paddingRight": "Right",
-		"removeBackground": "Remove background"
+		"removeBackground": "Remove background",
+		"verticalFraming": "Vertical framing",
+		"verticalFramingFit": "Fit",
+		"verticalFramingFollow": "Follow cursor",
+		"verticalFramingFitDescription": "The whole screen is shown inside the background.",
+		"verticalFramingFollowDescription": "The screen fills the frame and the camera follows the cursor."
 	},
 	"sections": {
 		"scene": "Scene",

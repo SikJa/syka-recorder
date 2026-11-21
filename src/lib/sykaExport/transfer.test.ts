@@ -111,6 +111,33 @@ describe("Syka transfer", () => {
 			).toBeLessThan(0.5);
 		}
 	});
+	it("transfers vertical follow framing as camera keyframes over the whole timeline", () => {
+		const input = fixture();
+		input.canvasSize = { width: 720, height: 1280 };
+		input.zoomRegions = [];
+		input.cursorTelemetry = [
+			{ timeMs: 0, cx: 0.2, cy: 0.5 },
+			{ timeMs: 3000, cx: 0.85, cy: 0.4 },
+		];
+		input.editor.verticalFraming = "follow";
+		input.editor.webcam = {
+			...input.editor.webcam,
+			enabled: true,
+			sourcePath: "B:/fixture/camera.mp4",
+			reactToZoom: true,
+		};
+		const { plan } = buildTransfer(input);
+		expect(plan.zooms).toHaveLength(1);
+		expect(plan.zooms[0]).toMatchObject({ startMs: 0, endMs: plan.canvas.durationMs });
+		const fill = (1280 + 2) / plan.screen!.height;
+		expect(evaluateKeyframes(plan.zooms[0].channels.scale, 0)).toBeCloseTo(fill, 2);
+		// Filling the frame is framing, not a zoom: the camera keeps its size.
+		expect(plan.webcam!.zoomScale).toBeUndefined();
+		expect(plan.warnings.some((w) => w.includes("encuadre vertical"))).toBe(true);
+
+		input.editor.verticalFraming = "fit";
+		expect(buildTransfer(input).plan.zooms).toEqual([]);
+	});
 	it("keeps the camera size when it does not react to zoom", () => {
 		const input = fixture();
 		input.editor.webcam = {

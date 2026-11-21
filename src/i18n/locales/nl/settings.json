@@ -151,7 +151,12 @@
 		"paddingBottom": "Onder",
 		"paddingLeft": "Links",
 		"paddingRight": "Rechts",
-		"removeBackground": "Achtergrond verwijderen"
+		"removeBackground": "Achtergrond verwijderen",
+		"verticalFraming": "Verticale kadrering",
+		"verticalFramingFit": "Passend",
+		"verticalFramingFollow": "Cursor volgen",
+		"verticalFramingFitDescription": "Het hele scherm is zichtbaar binnen de achtergrond.",
+		"verticalFramingFollowDescription": "Het scherm vult het kader en de camera volgt de cursor."
 	},
 	"sections": {
 		"scene": "Scène",

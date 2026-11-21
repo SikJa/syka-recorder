@@ -5,6 +5,7 @@ import type React from "react";
 import {
 	forwardRef,
 	useCallback,
+	useContext,
 	useEffect,
 	useImperativeHandle,
 	useMemo,
@@ -126,6 +127,13 @@ import {
 	isWebcamMediaSynchronized,
 	shouldSeekWebcamMedia,
 } from "./videoPlayback/webcamSync";
+import { VerticalFramingContext } from "./verticalFramingContext";
+import {
+	getZoomScaleRelativeToFraming,
+	resolveSceneBaseFraming,
+	type SceneBaseFraming,
+	type VerticalFramingMode,
+} from "./videoPlayback/verticalFraming";
 import {
 	applyZoomTransform,
 	computeZoomTransform,
@@ -272,6 +280,8 @@ interface VideoPlaybackProps {
 	cameraSpringMassMultiplier?: number;
 	zoomSmoothness?: number;
 	zoomClassicMode?: boolean;
+	/** Portrait framing; falls back to the editor's VerticalFramingContext. */
+	verticalFraming?: VerticalFramingMode;
 	zoomMotionBlur?: number;
 	zoomMotionBlurTuning?: ZoomMotionBlurTuning;
 	cursorMotionBlur?: number;
@@ -358,6 +368,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cameraSpringMassMultiplier = 1.12,
 			zoomSmoothness = 0.5,
 			zoomClassicMode = false,
+			verticalFraming: verticalFramingProp,
 			zoomMotionBlur = DEFAULT_ZOOM_MOTION_BLUR,
 			zoomMotionBlurTuning = DEFAULT_ZOOM_MOTION_BLUR_TUNING,
 			cursorMotionBlur = DEFAULT_CURSOR_MOTION_BLUR,
@@ -520,6 +531,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const lastRenderedContentTimeRef = useRef<number | null>(null);
 		const zoomSmoothnessRef = useRef(zoomSmoothness);
 		const zoomClassicModeRef = useRef(zoomClassicMode);
+		const verticalFramingContext = useContext(VerticalFramingContext);
+		const verticalFraming = verticalFramingProp ?? verticalFramingContext ?? "fit";
+		const verticalFramingRef = useRef<VerticalFramingMode>(verticalFraming);
+		const borderRadiusRef = useRef(borderRadius);
+		/** Follow framing for the current layout; null when the whole screen fits. */
+		const baseFramingRef = useRef<SceneBaseFraming | null>(null);
 		const cursorFollowCameraRef = useRef<CursorFollowCameraState>(
 			createCursorFollowCameraState(),
 		);
@@ -530,6 +547,30 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				shouldSnapPausedFrameRef.current = true;
 			}
 		}, []);
+
+		/** Recompute follow framing after the mode or the layout changed. */
+		const syncBaseFraming = useCallback(() => {
+			const next = resolveSceneBaseFraming({
+				mode: verticalFramingRef.current,
+				stageSize: stageSizeRef.current,
+				maskRect: baseMaskRef.current,
+				borderRadius: borderRadiusRef.current,
+			});
+			const previous = baseFramingRef.current;
+			baseFramingRef.current = next;
+			const changed =
+				Boolean(previous) !== Boolean(next) ||
+				(previous &&
+					next &&
+					(Math.abs(previous.fillScale - next.fillScale) > 1e-6 ||
+						Math.abs(previous.stageWidth - next.stageWidth) > 0.01 ||
+						Math.abs(previous.stageHeight - next.stageHeight) > 0.01));
+			if (changed) {
+				// The follow camera keeps state across frames; restart it on the new framing.
+				cursorFollowCameraRef.current = createCursorFollowCameraState();
+				requestPausedFrameRefresh();
+			}
+		}, [requestPausedFrameRefresh]);
 
 		const initializePixiRenderer = useCallback(
 			async (container: HTMLDivElement): Promise<Application> => {
@@ -1051,6 +1092,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					};
 				});
 				cropBoundsRef.current = result.cropBounds;
+				borderRadiusRef.current = borderRadius;
+				syncBaseFraming();
 
 				// Layout updates the media geometry, not the composed camera pose.
 				// In particular, a ResizeObserver notification while paused must not
@@ -1062,7 +1105,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					: null;
 
 				updateOverlayForRegion(activeRegion);
-				applyWebcamBubbleLayout(animationStateRef.current.appliedScale || 1);
+				applyWebcamBubbleLayout(
+					getZoomScaleRelativeToFraming(
+						animationStateRef.current.appliedScale || 1,
+						baseFramingRef.current,
+					),
+				);
 			}
 		}, [
 			updateOverlayForRegion,
@@ -1071,6 +1119,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			padding,
 			applyWebcamBubbleLayout,
 			syncPreviewMotionBlurQuality,
+			syncBaseFraming,
 		]);
 
 		useEffect(() => {
@@ -1500,6 +1549,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [zoomClassicMode, requestPausedFrameRefresh]);
 
 		useEffect(() => {
+			verticalFramingRef.current = verticalFraming;
+			syncBaseFraming();
+		}, [verticalFraming, syncBaseFraming]);
+
+		useEffect(() => {
 			cursorMotionBlurRef.current = cursorMotionBlur;
 			requestPausedFrameRefresh();
 		}, [cursorMotionBlur, requestPausedFrameRefresh]);
@@ -1586,7 +1640,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		useEffect(() => {
 			if (!pixiReady || !videoReady) return;
-			applyWebcamBubbleLayout(animationStateRef.current.appliedScale || 1);
+			applyWebcamBubbleLayout(
+				getZoomScaleRelativeToFraming(
+					animationStateRef.current.appliedScale || 1,
+					baseFramingRef.current,
+				),
+			);
 		}, [applyWebcamBubbleLayout, pixiReady, videoReady]);
 
 		const syncWebcamMedia = useCallback(() => {
@@ -2085,6 +2144,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						zoomClassicMode: zoomClassicModeRef.current,
 						cursorTelemetry: cursorTelemetryRef.current,
 						cursorFollowCamera,
+						baseFraming: baseFramingRef.current,
 					});
 
 				const target = resolveTarget(
@@ -2186,7 +2246,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					motionSample,
 				);
 
-				applyWebcamBubbleLayout(animationStateRef.current.appliedScale || 1);
+				applyWebcamBubbleLayout(
+					getZoomScaleRelativeToFraming(
+						animationStateRef.current.appliedScale || 1,
+						baseFramingRef.current,
+					),
+				);
 
 				const timeMs = currentTimeRef.current;
 				const cursorOverlay = cursorOverlayRef.current;

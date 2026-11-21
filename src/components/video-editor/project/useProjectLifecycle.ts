@@ -1,4 +1,5 @@
 /* biome-ignore-all lint/correctness/useExhaustiveDependencies: editor domain setters and refs are stable. */
+import { DEFAULT_VERTICAL_FRAMING } from "../videoPlayback/verticalFraming";
 import {
 	type Dispatch,
 	type MutableRefObject,
@@ -160,6 +161,7 @@ export function useProjectLifecycle(input: Input) {
 		appearance.setCursorClickEffectDurationMs(editor.cursorClickEffectDurationMs);
 		appearance.setZoomSmoothness(editor.zoomSmoothness);
 		appearance.setZoomClassicMode(editor.zoomClassicMode);
+		appearance.setVerticalFraming(editor.verticalFraming);
 		appearance.setCursorMotionBlur(editor.cursorMotionBlur);
 		appearance.setCursorClickBounce(editor.cursorClickBounce);
 		appearance.setCursorClickBounceDuration(editor.cursorClickBounceDuration);
@@ -321,6 +323,8 @@ export function useProjectLifecycle(input: Input) {
 	const resetSourceScopedEditorState = useCallback(() => {
 		const current = inputRef.current;
 		const { timeline, refs } = current;
+		// A new source is a new project: portrait frames start filled and following.
+		current.appearance.setVerticalFraming(DEFAULT_VERTICAL_FRAMING);
 		timeline.setZoomRegions([]);
 		timeline.setTrimRegions([]);
 		timeline.setClipRegions([]);

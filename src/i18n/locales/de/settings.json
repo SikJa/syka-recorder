@@ -151,7 +151,12 @@
 		"paddingBottom": "Unten",
 		"paddingLeft": "Links",
 		"paddingRight": "Rechts",
-		"removeBackground": "Hintergrund entfernen"
+		"removeBackground": "Hintergrund entfernen",
+		"verticalFraming": "Vertikaler Bildausschnitt",
+		"verticalFramingFit": "Einpassen",
+		"verticalFramingFollow": "Cursor folgen",
+		"verticalFramingFitDescription": "Der ganze Bildschirm ist im Hintergrund sichtbar.",
+		"verticalFramingFollowDescription": "Der Bildschirm füllt den Rahmen und die Kamera folgt dem Cursor."
 	},
 	"sections": {
 		"scene": "Szene",

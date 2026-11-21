@@ -151,7 +151,12 @@
 		"paddingBottom": "下",
 		"paddingLeft": "左",
 		"paddingRight": "右",
-		"removeBackground": "移除背景"
+		"removeBackground": "移除背景",
+		"verticalFraming": "竖屏取景",
+		"verticalFramingFit": "适应",
+		"verticalFramingFollow": "跟随光标",
+		"verticalFramingFitDescription": "在背景中显示整个屏幕。",
+		"verticalFramingFollowDescription": "屏幕填满画面，镜头跟随光标。"
 	},
 	"sections": {
 		"scene": "场景",

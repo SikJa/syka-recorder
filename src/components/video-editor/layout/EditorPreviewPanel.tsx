@@ -1,4 +1,12 @@
-import { type Dispatch, type RefObject, type SetStateAction, useMemo, useEffect, useRef, useState } from "react";
+import {
+	type Dispatch,
+	type RefObject,
+	type SetStateAction,
+	useMemo,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -39,6 +47,11 @@ import type { useAppearanceState } from "../state/useAppearanceState";
 import type { useTimelineState } from "../state/useTimelineState";
 import type { TimelineEditorHandle } from "../timeline/TimelineEditor";
 import type { VideoPlaybackRef } from "../VideoPlayback";
+import {
+	PlatformOverlayLayer,
+	PlatformOverlayMenu,
+	usePlatformOverlayPreference,
+} from "../PlatformOverlay";
 import { EditorVideoPreview } from "./EditorVideoPreview";
 
 type Props = {
@@ -87,13 +100,15 @@ export function EditorPreviewPanel(props: Props) {
 	const previewContainerRef = useRef<HTMLDivElement>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
 	useEffect(() => {
-		const syncFullscreen = () => setIsFullscreen(document.fullscreenElement === previewContainerRef.current);
+		const syncFullscreen = () =>
+			setIsFullscreen(document.fullscreenElement === previewContainerRef.current);
 		document.addEventListener("fullscreenchange", syncFullscreen);
 		return () => document.removeEventListener("fullscreenchange", syncFullscreen);
 	}, []);
 	const toggleFullscreen = async () => {
 		try {
-			if (document.fullscreenElement === previewContainerRef.current) await document.exitFullscreen();
+			if (document.fullscreenElement === previewContainerRef.current)
+				await document.exitFullscreen();
 			else await previewContainerRef.current?.requestFullscreen();
 		} catch (error) {
 			console.warn("Unable to expand video preview", error);
@@ -133,6 +148,7 @@ export function EditorPreviewPanel(props: Props) {
 		setIsPlaying,
 		setError,
 	} = props;
+	const [platformOverlay, setPlatformOverlay] = usePlatformOverlayPreference();
 
 	const aspectControls = useMemo(
 		() => (
@@ -170,9 +186,23 @@ export function EditorPreviewPanel(props: Props) {
 					<span className="font-medium">{t("settings.crop.title")}</span>
 					{isCropped ? <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" /> : null}
 				</Button>
+				<div className="h-4 w-px bg-foreground/20" />
+				<PlatformOverlayMenu
+					aspectRatio={aspectRatio}
+					preference={platformOverlay}
+					onChange={setPlatformOverlay}
+				/>
 			</div>
 		),
-		[aspectRatio, setAspectRatio, handleOpenCropEditor, isCropped, t],
+		[
+			aspectRatio,
+			setAspectRatio,
+			handleOpenCropEditor,
+			isCropped,
+			t,
+			platformOverlay,
+			setPlatformOverlay,
+		],
 	);
 	const layerTools = useMemo(
 		() => (
@@ -298,7 +328,10 @@ export function EditorPreviewPanel(props: Props) {
 	);
 
 	return (
-		<div ref={previewContainerRef} className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
+		<div
+			ref={previewContainerRef}
+			className="flex min-h-0 min-w-0 flex-1 flex-col bg-background"
+		>
 			<div className="flex min-h-0 flex-1 flex-col">
 				<div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
 					{!isFullscreen && aspectControls}
@@ -358,6 +391,10 @@ export function EditorPreviewPanel(props: Props) {
 											annotationCommands.handleAnnotationSizeChange,
 									}}
 								/>
+								<PlatformOverlayLayer
+									aspectRatio={aspectRatio}
+									preference={platformOverlay}
+								/>
 							</div>
 						</div>
 					</div>
@@ -411,11 +448,27 @@ export function EditorPreviewPanel(props: Props) {
 
 				<div className="ml-auto flex items-center gap-1">
 					{volumeControl}
-					<Button variant="ghost" size="icon" disabled={!videoPath}
-						aria-label={isFullscreen ? t("editor.playback.exitFullscreen", "Exit fullscreen") : t("editor.playback.fullscreen", "View fullscreen")}
-						title={isFullscreen ? t("editor.playback.exitFullscreen", "Exit fullscreen") : t("editor.playback.fullscreen", "View fullscreen")}
-						onClick={() => void toggleFullscreen()}>
-						{isFullscreen ? <ArrowsIn className="size-3.5" /> : <ArrowsOut className="size-3.5" />}
+					<Button
+						variant="ghost"
+						size="icon"
+						disabled={!videoPath}
+						aria-label={
+							isFullscreen
+								? t("editor.playback.exitFullscreen", "Exit fullscreen")
+								: t("editor.playback.fullscreen", "View fullscreen")
+						}
+						title={
+							isFullscreen
+								? t("editor.playback.exitFullscreen", "Exit fullscreen")
+								: t("editor.playback.fullscreen", "View fullscreen")
+						}
+						onClick={() => void toggleFullscreen()}
+					>
+						{isFullscreen ? (
+							<ArrowsIn className="size-3.5" />
+						) : (
+							<ArrowsOut className="size-3.5" />
+						)}
 					</Button>
 				</div>
 			</div>

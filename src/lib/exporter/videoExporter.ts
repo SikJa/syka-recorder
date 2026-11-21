@@ -1,3 +1,4 @@
+import type { VerticalFramingMode } from "@/components/video-editor/videoPlayback/verticalFraming";
 import { requiresClipTimelineRendering } from "./clipTimeline";
 import type {
 	AnnotationRegion,
@@ -89,6 +90,7 @@ interface VideoExporterConfig extends ExportConfig {
 	cursorClickBounceDuration?: number;
 	cursorSway?: number;
 	zoomSmoothness?: number;
+	verticalFraming?: VerticalFramingMode;
 	audioRegions?: AudioRegion[];
 	clipRegions?: ClipRegion[];
 	sourceAudioFallbackPaths?: string[];
@@ -263,6 +265,7 @@ export class VideoExporter {
 				cursorClickBounceDuration: this.config.cursorClickBounceDuration,
 				cursorSway: this.config.cursorSway,
 				zoomSmoothness: this.config.zoomSmoothness,
+				verticalFraming: this.config.verticalFraming,
 			});
 			await this.renderer.initialize();
 

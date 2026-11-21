@@ -1,3 +1,9 @@
+import {
+	getZoomScaleRelativeToFraming,
+	resolveSceneBaseFraming,
+	type SceneBaseFraming,
+	type VerticalFramingMode,
+} from "@/components/video-editor/videoPlayback/verticalFraming";
 import { Application, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
@@ -125,6 +131,7 @@ interface FrameRenderConfig {
 	cameraSpringMassMultiplier?: number;
 	zoomSmoothness?: number;
 	zoomClassicMode?: boolean;
+	verticalFraming?: VerticalFramingMode;
 	cursorMotionBlur?: number;
 	cursorClickEffect?: CursorClickEffectStyle;
 	cursorClickEffectColor?: string;
@@ -249,6 +256,7 @@ export class FrameRenderer {
 	private animationState: AnimationState;
 	private motionBlurState: MotionBlurState;
 	private layoutCache: LayoutCache | null = null;
+	private baseFraming: SceneBaseFraming | null = null;
 	private currentVideoTime = 0;
 	private springScale: SpringState;
 	private springX: SpringState;
@@ -1604,6 +1612,12 @@ export class FrameRenderer {
 				sourceCrop: cropRegion,
 			},
 		};
+		this.baseFraming = resolveSceneBaseFraming({
+			mode: this.config.verticalFraming,
+			stageSize: this.layoutCache.stageSize,
+			maskRect: this.layoutCache.maskRect,
+			borderRadius,
+		});
 	}
 
 	/** Advance the export camera from the shared scene target at this media time. */
@@ -1620,6 +1634,7 @@ export class FrameRenderer {
 			zoomClassicMode: this.config.zoomClassicMode,
 			cursorTelemetry: this.config.cursorTelemetry,
 			cursorFollowCamera: this.cursorFollowCamera,
+			baseFraming: this.baseFraming,
 		});
 
 		const state = this.animationState;
@@ -1868,7 +1883,10 @@ export class FrameRenderer {
 			widthPercent,
 			heightPercent,
 			margin,
-			zoomScale: this.animationState.appliedScale || 1,
+			zoomScale: getZoomScaleRelativeToFraming(
+				this.animationState.appliedScale || 1,
+				this.baseFraming,
+			),
 			reactToZoom: webcam.reactToZoom ?? true,
 		});
 		const { x, y } = getWebcamOverlayPosition({

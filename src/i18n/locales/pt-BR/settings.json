@@ -151,7 +151,12 @@
 		"paddingBottom": "Inferior",
 		"paddingLeft": "Esquerdo",
 		"paddingRight": "Direito",
-		"removeBackground": "Remover fundo"
+		"removeBackground": "Remover fundo",
+		"verticalFraming": "Enquadramento vertical",
+		"verticalFramingFit": "Ajustar",
+		"verticalFramingFollow": "Seguir o cursor",
+		"verticalFramingFitDescription": "A tela inteira aparece dentro do fundo.",
+		"verticalFramingFollowDescription": "A tela preenche o quadro e a câmera segue o cursor."
 	},
 	"sections": {
 		"scene": "Cena",

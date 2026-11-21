@@ -32,6 +32,7 @@ import { getStartupView } from "@/lib/startupView";
 import { HomeLoadingSkeleton } from "../dashboard/HomeLoadingSkeleton";
 import { EditorLoadingSkeleton } from "./EditorLoadingSkeleton";
 import { EditorHeader } from "./EditorHeader";
+import { VerticalFramingContext } from "../verticalFramingContext";
 import { EditorPreviewPanel } from "./EditorPreviewPanel";
 import { EditorSidebar } from "./EditorSidebar";
 import { EditorTimelinePanel } from "./EditorTimelinePanel";
@@ -378,40 +379,42 @@ export function EditorShell(props: Props) {
 							onShowOnboarding: showOnboarding,
 						}}
 					/>
-					<EditorPreviewPanel
-						t={t}
-						videoPath={project.videoPath}
-						previewVersion={ui.previewVersion}
-						aspectRatio={ui.aspectRatio}
-						setAspectRatio={ui.setAspectRatio}
-						previewAspectRatioValue={previewAspectRatioValue}
-						videoPlaybackRef={ui.videoPlaybackRef}
-						timelineRef={ui.timelineRef}
-						currentTime={ui.currentTime}
-						isPlaying={ui.isPlaying}
-						previewVolume={ui.previewVolume}
-						setPreviewVolume={ui.setPreviewVolume}
-						suspendRendering={exportStatus.shouldSuspendPreviewRendering}
-						appearance={appearance}
-						timeline={timeline}
-						audio={audio}
-						projection={projection}
-						playback={playback}
-						zoomCommands={zoomCommands}
-						annotationCommands={annotationCommands}
-						effectiveCursorTelemetry={cursor.effectiveCursorTelemetry}
-						effectiveShowCursor={effectiveShowCursor}
-						isCropped={ui.isCropped}
-						handleOpenCropEditor={ui.handleOpenCropEditor}
-						handleSaveAutoCaptionEdit={autoCaption.handleSaveAutoCaptionEdit}
-						handleSelectAnnotation={handleSelectAnnotation}
-						setDuration={ui.setDuration}
-						isPreviewReady={ui.isPreviewReady}
-						setIsPreviewReady={ui.setIsPreviewReady}
-						setCurrentTime={ui.setCurrentTime}
-						setIsPlaying={ui.setIsPlaying}
-						setError={handlePreviewError}
-					/>
+					<VerticalFramingContext.Provider value={appearance.verticalFraming}>
+						<EditorPreviewPanel
+							t={t}
+							videoPath={project.videoPath}
+							previewVersion={ui.previewVersion}
+							aspectRatio={ui.aspectRatio}
+							setAspectRatio={ui.setAspectRatio}
+							previewAspectRatioValue={previewAspectRatioValue}
+							videoPlaybackRef={ui.videoPlaybackRef}
+							timelineRef={ui.timelineRef}
+							currentTime={ui.currentTime}
+							isPlaying={ui.isPlaying}
+							previewVolume={ui.previewVolume}
+							setPreviewVolume={ui.setPreviewVolume}
+							suspendRendering={exportStatus.shouldSuspendPreviewRendering}
+							appearance={appearance}
+							timeline={timeline}
+							audio={audio}
+							projection={projection}
+							playback={playback}
+							zoomCommands={zoomCommands}
+							annotationCommands={annotationCommands}
+							effectiveCursorTelemetry={cursor.effectiveCursorTelemetry}
+							effectiveShowCursor={effectiveShowCursor}
+							isCropped={ui.isCropped}
+							handleOpenCropEditor={ui.handleOpenCropEditor}
+							handleSaveAutoCaptionEdit={autoCaption.handleSaveAutoCaptionEdit}
+							handleSelectAnnotation={handleSelectAnnotation}
+							setDuration={ui.setDuration}
+							isPreviewReady={ui.isPreviewReady}
+							setIsPreviewReady={ui.setIsPreviewReady}
+							setCurrentTime={ui.setCurrentTime}
+							setIsPlaying={ui.setIsPlaying}
+							setError={handlePreviewError}
+						/>
+					</VerticalFramingContext.Provider>
 				</div>
 				<EditorTimelinePanel
 					panelRef={timelinePanelRef}

@@ -1,3 +1,4 @@
+import type { VerticalFramingMode } from "@/components/video-editor/videoPlayback/verticalFraming";
 import GIF from "gif.js";
 import type {
 	AnnotationRegion,
@@ -77,6 +78,7 @@ interface GifExporterConfig {
 	cameraSpringMassMultiplier?: number;
 	zoomSmoothness?: number;
 	zoomClassicMode?: boolean;
+	verticalFraming?: VerticalFramingMode;
 	cursorMotionBlur?: number;
 	cursorClickEffect?: CursorClickEffectStyle;
 	cursorClickEffectColor?: string;
@@ -181,6 +183,7 @@ export function buildGifFrameRendererConfig(
 		cameraSpringMassMultiplier: config.cameraSpringMassMultiplier,
 		zoomSmoothness: config.zoomSmoothness,
 		zoomClassicMode: config.zoomClassicMode,
+		verticalFraming: config.verticalFraming,
 		cursorMotionBlur: config.cursorMotionBlur,
 		cursorClickEffect: config.cursorClickEffect,
 		cursorClickEffectColor: config.cursorClickEffectColor,

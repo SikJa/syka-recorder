@@ -29,6 +29,7 @@ export {
 	CloudArrowUp,
 	Copy,
 	Crop,
+	DeviceMobile,
 	Cursor,
 	DesktopIcon,
 	DotsThree,

@@ -63,6 +63,10 @@ import {
 	type ZoomRegion,
 	type ZoomTransitionEasing,
 } from "./types";
+import {
+	normalizeVerticalFraming,
+	type VerticalFramingMode,
+} from "./videoPlayback/verticalFraming";
 import { convertLegacyWebcamRadiusToRoundness, normalizeWebcamCropRegion } from "./webcamOverlay";
 
 export const PROJECT_VERSION = 2;
@@ -115,6 +119,8 @@ export interface ProjectEditorState {
 	cameraSpringMassMultiplier: number;
 	zoomSmoothness: number;
 	zoomClassicMode: boolean;
+	/** Portrait frames only: fit the whole screen or fill and follow the cursor. */
+	verticalFraming: VerticalFramingMode;
 	cursorMotionBlur: number;
 	cursorClickBounce: number;
 	cursorClickBounceDuration: number;
@@ -881,6 +887,8 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		zoomSmoothness: DEFAULT_ZOOM_SMOOTHNESS,
 		zoomClassicMode:
 			typeof editor.zoomClassicMode === "boolean" ? editor.zoomClassicMode : false,
+		// Projects saved before vertical framing existed keep their original export.
+		verticalFraming: normalizeVerticalFraming(editor.verticalFraming),
 		cursorMotionBlur: DEFAULT_CURSOR_MOTION_BLUR,
 		cursorClickBounce: normalizedMotionPreset.cursorClickBounce,
 		cursorClickBounceDuration: normalizedMotionPreset.cursorClickBounceDuration,

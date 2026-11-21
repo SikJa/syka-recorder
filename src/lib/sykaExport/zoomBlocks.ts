@@ -6,19 +6,27 @@ import type { CameraSample } from "./zoomCamera";
 /** Partition the sampled camera into non-overlapping native zoom clips.
  * Adjacent/connected zooms retain the camera value at their shared boundary.
  * Syka scales about the centre; Recordly's camera scales about the origin.
+ * With `continuousCamera` (vertical follow framing) the camera never rests, so
+ * the blocks cover the whole timeline, one block when there are no zooms.
  */
 export function buildZoomBlocks(
 	samples: CameraSample[],
-	regions: ZoomRegion[],
+	regions: Pick<ZoomRegion, "startMs" | "endMs">[],
 	width: number,
 	height: number,
 	fps: number,
 	durationMs: number,
+	{ continuousCamera = false }: { continuousCamera?: boolean } = {},
 ): TransferZoom[] {
-	if (!regions.length || samples.length < 2) return [];
-	const sorted = [...regions].sort((a, b) => a.startMs - b.startMs);
+	if (samples.length < 2) return [];
+	const framingOnly = continuousCamera && !regions.length;
+	if (!regions.length && !framingOnly) return [];
+	const sorted = framingOnly
+		? [{ startMs: 0, endMs: durationMs }]
+		: [...regions].sort((a, b) => a.startMs - b.startMs);
 	const moving = samples.map(
 		(s) =>
+			continuousCamera ||
 			Math.max(
 				Math.abs(s.scale - 1) * Math.max(width, height),
 				Math.abs(s.x),
@@ -61,8 +69,8 @@ export function buildZoomBlocks(
 				tolerance,
 			);
 		blocks.push({
-			id: `zoom-${i + 1}`,
-			name: `Zoom ${i + 1}`,
+			id: framingOnly ? "framing" : `zoom-${i + 1}`,
+			name: framingOnly ? "Encuadre vertical" : `Zoom ${i + 1}`,
 			startMs: samples[first].timeMs,
 			endMs: last === samples.length - 1 ? durationMs : samples[last].timeMs,
 			channels: {

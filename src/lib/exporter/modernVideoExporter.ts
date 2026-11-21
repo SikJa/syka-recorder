@@ -1,3 +1,8 @@
+import {
+	resolveSceneBaseFraming,
+	type SceneBaseFraming,
+	type VerticalFramingMode,
+} from "@/components/video-editor/videoPlayback/verticalFraming";
 import type {
 	AnnotationRegion,
 	AudioRegion,
@@ -145,6 +150,7 @@ interface VideoExporterConfig extends ExportConfig {
 	cursorSway?: number;
 	zoomSmoothness?: number;
 	zoomClassicMode?: boolean;
+	verticalFraming?: VerticalFramingMode;
 	audioRegions?: AudioRegion[];
 	clipRegions?: ClipRegion[];
 	sourceAudioFallbackPaths?: string[];
@@ -657,6 +663,7 @@ export class ModernVideoExporter {
 					cursorSway: this.config.cursorSway,
 					zoomSmoothness: this.config.zoomSmoothness,
 					zoomClassicMode: this.config.zoomClassicMode,
+					verticalFraming: this.config.verticalFraming,
 				});
 				await this.renderer.initialize();
 				this.rendererInitTimeMs = this.getNowMs() - stageStartedAt;
@@ -1746,6 +1753,22 @@ export class ModernVideoExporter {
 		if (hasZoomRegions && this.config.experimentalNativeExport !== true) {
 			reasons.push("native-zoom-requires-windows-gpu");
 		}
+		// Follow framing moves the camera on every frame, like a zoom region.
+		if (
+			this.getNativeStaticLayoutBaseFraming(
+				computePaddedLayout({
+					width: this.config.width,
+					height: this.config.height,
+					padding: this.config.padding ?? 0,
+					cropRegion: this.config.cropRegion,
+					videoWidth: videoInfo.width,
+					videoHeight: videoInfo.height,
+				}),
+			) &&
+			this.config.experimentalNativeExport !== true
+		) {
+			reasons.push("native-vertical-follow-requires-windows-gpu");
+		}
 		if ((this.config.annotationRegions ?? []).length > 0) {
 			reasons.push("unsupported-annotation-overlay");
 		}
@@ -2287,6 +2310,18 @@ export class ModernVideoExporter {
 		);
 	}
 
+	/** Follow framing for the native compositor's layout, or null when it does not apply. */
+	private getNativeStaticLayoutBaseFraming(
+		layout: ReturnType<typeof computePaddedLayout>,
+	): SceneBaseFraming | null {
+		return resolveSceneBaseFraming({
+			mode: this.config.verticalFraming,
+			stageSize: { width: this.config.width, height: this.config.height },
+			maskRect: { width: layout.croppedDisplayWidth, height: layout.croppedDisplayHeight },
+			borderRadius: this.config.borderRadius,
+		});
+	}
+
 	/** Build deterministic per-frame camera transforms for native compositors. */
 	private getNativeStaticLayoutZoomTelemetry(
 		layout: ReturnType<typeof computePaddedLayout>,
@@ -2303,7 +2338,8 @@ export class ModernVideoExporter {
 			| undefined,
 	): NativeStaticLayoutZoomSample[] | undefined {
 		const zoomRegions = this.config.zoomRegions ?? [];
-		if (zoomRegions.length === 0 || totalFrames <= 0) {
+		const baseFraming = this.getNativeStaticLayoutBaseFraming(layout);
+		if ((zoomRegions.length === 0 && !baseFraming) || totalFrames <= 0) {
 			return undefined;
 		}
 
@@ -2338,6 +2374,7 @@ export class ModernVideoExporter {
 				zoomClassicMode: this.config.zoomClassicMode,
 				cursorTelemetry: cursorTelemetry ?? [],
 				cursorFollowCamera,
+				baseFraming,
 			});
 
 			const projectedTransform = computeZoomTransform({

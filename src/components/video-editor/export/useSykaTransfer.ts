@@ -261,6 +261,8 @@ export function useSykaTransfer(
 				borderRadius: 0,
 				backgroundBlur: 0,
 				zoomMotionBlur: 0,
+				// The clean screen keeps its own framing; Studio applies the camera.
+				verticalFraming: "fit",
 				// Undefined selects the whole source. An empty clip list renders gaps only.
 				zoomRegions: [],
 				trimRegions: [],

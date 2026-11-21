@@ -12,6 +12,7 @@ import {
 	stepSpringValue,
 } from "@/components/video-editor/videoPlayback/motionSmoothing";
 import { resolveSceneZoomTarget } from "@/components/video-editor/videoPlayback/sceneMotion";
+import type { SceneBaseFraming } from "@/components/video-editor/videoPlayback/verticalFraming";
 import { computeZoomTransform } from "@/components/video-editor/videoPlayback/zoomTransform";
 
 /** Camera settings the export renderer reads from the editor. */
@@ -48,6 +49,8 @@ export interface SampleZoomCameraInput {
 	durationMs: number;
 	frameRate: number;
 	baseMask?: { x: number; y: number; width: number; height: number };
+	/** Vertical follow framing, sampled with the same camera as the renderers. */
+	baseFraming?: SceneBaseFraming | null;
 }
 
 /**
@@ -65,6 +68,7 @@ export function sampleZoomCamera({
 	durationMs,
 	frameRate,
 	baseMask = { x: 0, y: 0, width: frameWidth, height: frameHeight },
+	baseFraming = null,
 }: SampleZoomCameraInput): CameraSample[] {
 	if (
 		![frameWidth, frameHeight, frameRate, durationMs].every(Number.isFinite) ||
@@ -104,6 +108,7 @@ export function sampleZoomCamera({
 			zoomClassicMode: settings.zoomClassicMode,
 			cursorTelemetry,
 			cursorFollowCamera,
+			baseFraming,
 		});
 		const projected = computeZoomTransform({
 			stageSize,

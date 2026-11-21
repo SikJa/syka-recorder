@@ -151,7 +151,12 @@
 		"paddingBottom": "Basso",
 		"paddingLeft": "Sinistra",
 		"paddingRight": "Destra",
-		"removeBackground": "Rimuovi sfondo"
+		"removeBackground": "Rimuovi sfondo",
+		"verticalFraming": "Inquadratura verticale",
+		"verticalFramingFit": "Adatta",
+		"verticalFramingFollow": "Segui il cursore",
+		"verticalFramingFitDescription": "L’intero schermo è visibile nello sfondo.",
+		"verticalFramingFollowDescription": "Lo schermo riempie il riquadro e la camera segue il cursore."
 	},
 	"sections": {
 		"scene": "Scena",

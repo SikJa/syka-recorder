@@ -151,7 +151,12 @@
 		"paddingBottom": "Снизу",
 		"paddingLeft": "Слева",
 		"paddingRight": "Справа",
-		"removeBackground": "Удалить фон"
+		"removeBackground": "Удалить фон",
+		"verticalFraming": "Вертикальное кадрирование",
+		"verticalFramingFit": "Вписать",
+		"verticalFramingFollow": "Следовать за курсором",
+		"verticalFramingFitDescription": "Весь экран виден на фоне.",
+		"verticalFramingFollowDescription": "Экран заполняет кадр, а камера следует за курсором."
 	},
 	"sections": {
 		"scene": "Сцена",

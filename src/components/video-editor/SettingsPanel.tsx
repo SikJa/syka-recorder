@@ -29,7 +29,8 @@ import {
 	getAvailableWallpapers,
 	isVideoWallpaperSource,
 } from "@/lib/wallpapers";
-import { type AspectRatio } from "@/utils/aspectRatioUtils";
+import { type AspectRatio, getAspectRatioValue } from "@/utils/aspectRatioUtils";
+import type { VerticalFramingMode } from "./videoPlayback/verticalFraming";
 import { useI18n, useScopedT } from "../../contexts/I18nContext";
 import type { AppLocale } from "../../i18n/config";
 import { SUPPORTED_LOCALES } from "../../i18n/config";
@@ -483,6 +484,8 @@ interface SettingsPanelProps {
 	onCameraSpringMassMultiplierChange?: (multiplier: number) => void;
 	zoomClassicMode?: boolean;
 	onZoomClassicModeChange?: (enabled: boolean) => void;
+	verticalFraming?: VerticalFramingMode;
+	onVerticalFramingChange?: (mode: VerticalFramingMode) => void;
 	cursorClickEffect?: CursorClickEffectStyle;
 	onCursorClickEffectChange?: (effect: CursorClickEffectStyle) => void;
 	cursorClickEffectColor?: string;
@@ -849,6 +852,8 @@ function SettingsPanelContent({
 	onCameraSpringMassMultiplierChange,
 	zoomClassicMode = false,
 	onZoomClassicModeChange,
+	verticalFraming = "fit",
+	onVerticalFramingChange,
 	cursorClickEffect = DEFAULT_CURSOR_CLICK_EFFECT,
 	onCursorClickEffectChange,
 	cursorClickEffectColor = DEFAULT_CURSOR_CLICK_EFFECT_COLOR,
@@ -1650,6 +1655,7 @@ function SettingsPanelContent({
 		);
 	}
 
+	const isPortraitAspect = aspectRatio !== "native" && getAspectRatioValue(aspectRatio) < 1;
 	const frameSectionContent = (
 		<section className="flex flex-col gap-4">
 			<div className="flex items-center justify-between gap-3">
@@ -1664,6 +1670,39 @@ function SettingsPanelContent({
 					{t("common.actions.reset", "Reset")}
 				</Button>
 			</div>
+			{isPortraitAspect && (
+				<div className="flex flex-col gap-2">
+					<span className="text-xs text-muted-foreground">
+						{tSettings("effects.verticalFraming", "Vertical framing")}
+					</span>
+					<ChoiceGroup
+						aria-label={tSettings("effects.verticalFraming", "Vertical framing")}
+						value={verticalFraming}
+						onValueChange={(value) =>
+							onVerticalFramingChange?.(value as VerticalFramingMode)
+						}
+						className="grid grid-cols-2 gap-2"
+					>
+						<ChoiceItem value="fit">
+							{tSettings("effects.verticalFramingFit", "Fit")}
+						</ChoiceItem>
+						<ChoiceItem value="follow">
+							{tSettings("effects.verticalFramingFollow", "Follow cursor")}
+						</ChoiceItem>
+					</ChoiceGroup>
+					<p className="text-xs text-muted-foreground/70">
+						{verticalFraming === "follow"
+							? tSettings(
+									"effects.verticalFramingFollowDescription",
+									"The screen fills the frame and the camera follows the cursor.",
+								)
+							: tSettings(
+									"effects.verticalFramingFitDescription",
+									"The whole screen is shown inside the background.",
+								)}
+					</p>
+				</div>
+			)}
 			<div className="flex flex-col gap-3">
 				<SliderControl
 					label={tSettings("effects.shadow")}
